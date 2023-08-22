@@ -40,6 +40,7 @@ To change the game open the "scriptname".json file.
 Next change the gamename to the new gamename.
 Next change the gameid to the new gameid.
 Next in gameversions you need to change/add the list like the following.  
+
     "versions" : [  
         ["HERE-FOLDER-END","HERE-GAME-VERSION"],  
         ["HERE-OTHERFOLDER-END","HERE-OTHERGAME-VERSION"],  
