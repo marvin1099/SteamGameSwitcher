@@ -24,7 +24,7 @@ It also keeps the versions in seperate folders if set up that way.
 Download python  
 Download this script from  
 https://codeberg.org/marvin1099/SteamGameSwitcher/releases  
-or download this script from  
+Or download this script from  
 https://github.com/marvin1099/SteamGameSwitcher/releases  
 
 # Install
