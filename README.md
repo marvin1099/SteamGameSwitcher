@@ -36,9 +36,9 @@ Steam does not need to download the new files so close it then continue.
 Run the script, at this point you can switch gameversions by running the script.
 
 # CustomGames
-To change the game open the "scriptname".json file.
-Next change the gamename to the new gamename.
-Next change the gameid to the new gameid.
+To change the game open the "scriptname".json file.  
+Next change the gamename to the new gamename.  
+Next change the gameid to the new gameid.  
 Next in gameversions you need to change/add the list like the following.  
 
     "versions" : [  
@@ -51,12 +51,12 @@ You probably want the nomal version/first entry to have no additonal folder end.
 As start folder of HERE-FOLDER-END The script will allways use the gamename.  
 
 # Shortcut
-You might want to make a shortcut for loding a specific version.
-Right click and click create a shortcut.
-On linux it says create a link to application.
-Point the shortcut to the script.  
-In the argument field you can now and the index of your desired version.
-For other arguments see usage below.
+You might want to make a shortcut for loding a specific version.  
+Right click and click create a shortcut.  
+On linux it says create a link to application.  
+Point the shortcut to the script.   
+In the argument field you can now and the index of your desired version.  
+For other arguments see usage below.  
 
 # Usage
     Use the following characters as arguments (only one can be used)
