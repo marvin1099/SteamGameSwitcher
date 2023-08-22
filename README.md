@@ -1,5 +1,5 @@
 # SteamGameSwitcher Main
-https://codeberg.org/marvin1099/SteamGameSwitcher
+https://codeberg.org/marvin1099/SteamGameSwitcher  
 https://codeberg.org/marvin1099/SteamGameSwitcher#description  
 https://codeberg.org/marvin1099/SteamGameSwitcher#download  
 https://codeberg.org/marvin1099/SteamGameSwitcher#install  
