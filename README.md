@@ -1,13 +1,13 @@
-# SteamGameSwitcher Codeberg
-Main Repo: https://codeberg.org/marvin1099/SteamGameSwitcher
+# SteamGameSwitcher Main
+https://codeberg.org/marvin1099/SteamGameSwitcher
 https://codeberg.org/marvin1099/SteamGameSwitcher#description  
 https://codeberg.org/marvin1099/SteamGameSwitcher#download  
 https://codeberg.org/marvin1099/SteamGameSwitcher#install  
 https://codeberg.org/marvin1099/SteamGameSwitcher#customgames
 https://codeberg.org/marvin1099/SteamGameSwitcher#shortcut
 https://codeberg.org/marvin1099/SteamGameSwitcher#usage
-# SteamGameSwitcher Github
-Backup Repo: https://github.com/marvin1099/SteamGameSwitcher  
+# SteamGameSwitcher Backup
+https://github.com/marvin1099/SteamGameSwitcher   
 https://github.com/marvin1099/SteamGameSwitcher#description  
 https://github.com/marvin1099/SteamGameSwitcher#download  
 https://github.com/marvin1099/SteamGameSwitcher#install  
