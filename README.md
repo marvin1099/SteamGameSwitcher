@@ -42,8 +42,8 @@ Next change the gameid to the new gameid.
 Next in gameversions you need to change/add the list like the following.  
     "versions" : [  
         ["HERE-FOLDER-END","HERE-GAME-VERSION"],  
-        ["HERE-OTHERFOLDER-END","HERE-OTHERGAME-VERSION"], 
-        ...  
+        ["HERE-OTHERFOLDER-END","HERE-OTHERGAME-VERSION"],  
+        ...   
         ["HERE-LASTFOLDER-END","HERE-LASTGAME-VERSION"]  
     ]  
 You probably want the nomal version/first entry to have no additonal folder end.  
