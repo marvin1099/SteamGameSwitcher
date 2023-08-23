@@ -50,7 +50,7 @@ Next in gameversions you need to change/add the list like the following.
         ["HERE-LASTFOLDER-END","HERE-LASTGAME-VERSION"]  
     ]  
 You probably want the nomal version/first entry to have no additonal folder end.  
-As start folder of HERE-FOLDER-END The script will allways use the gamename.  
+The script will always prefix the gamename in front of HERE-FOLDER-END.  
 
 # Shortcut
 You might want to make a shortcut for loding a specific version.  
