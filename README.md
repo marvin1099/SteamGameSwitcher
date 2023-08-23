@@ -36,7 +36,9 @@ Steam does not need to download the new files so close it then continue.
 Run the script, at this point you can switch gameversions by running the script.
 
 # CustomGames
-To change the game open the "scriptname".json file.  
+The script can be copyed and renamed to have a script for multiple games.  
+To change the game open the 'SCRIPTNAME.json' file.  
+of corse SCRIPTNAME needs to be the scriptname and the ' sysmbol is not in the filename.  
 Next change the gamename to the new gamename.  
 Next change the gameid to the new gameid.  
 Next in gameversions you need to change/add the list like the following.  
