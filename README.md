@@ -2,7 +2,7 @@
 Main Repo: https://codeberg.org/marvin1099/SteamGameSwitcher  
 Backup Repo: https://github.com/marvin1099/SteamGameSwitcher  
 
-# Table-of-contents
+# Table of contents
 - [Description](#description)  
 - [Download](#download)  
 - [Install](#install)  
