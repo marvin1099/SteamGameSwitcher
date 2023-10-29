@@ -3,12 +3,12 @@ Main Repo: https://codeberg.org/marvin1099/SteamGameSwitcher
 Backup Repo: https://github.com/marvin1099/SteamGameSwitcher  
 
 # Table-of-contents
-[Description](#description)  
-[Download](#download)  
-[Install](#install)  
-[CustomGames](#customgames)  
-[Shortcut](#shortcut)  
-[Usage](#usage)  
+- [Description](#description)  
+- [Download](#download)  
+- [Install](#install)  
+- [CustomGames](#customgames)  
+- [Shortcut](#shortcut)  
+- [Usage](#usage)  
   
 # Description
 A simple python script to switch steam gameversions.  
