@@ -64,7 +64,7 @@ For other arguments see usage below.
     VERSION         Valid values are
                         0 to circle (default), - to reverse circle
                         INDEX to select a index (eg 2 gets branch 2, -2 gets 2end last)
-                        NAME to select name (eg '' for public or experimental)
+                        NAME to select name (eg '' for public or experimental for experimental)
 
 # Examples
     ./SGS.py 0
