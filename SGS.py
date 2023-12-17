@@ -297,7 +297,7 @@ def arg_struct(args):
         if i == "id":
             get = "id"
         elif i == "h" or i == "-h" or i == "--help" or i == "help":
-            print("h\t\tTo display this help and exit\nid GAMEID\tTo set the game (id) the script uses\nVERSION\t\tValid values are\n\t\t\t0 to circle (default), - to reverse circle\n\t\t\tINDEX to select a index (eg 2 gets branch 2, -2 gets 2end last)\n\t\t\tNAME to select name (eg '' for public or experimental)")
+            print("h\t\tTo display this help and exit\nid GAMEID\tTo set the game (id) the script uses\nVERSION\t\tValid values are\n\t\t\t0 to circle (default), - to reverse circle\n\t\t\tINDEX to select a index (eg 2 gets branch 2, -2 gets 2end last)\n\t\t\tNAME to select name (eg '' for public or experimental for experimental)")
             exit() # Exit on help
         else:
             if get == "id":
