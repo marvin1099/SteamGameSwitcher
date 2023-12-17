@@ -9,6 +9,7 @@ Backup Repo: https://github.com/marvin1099/SteamGameSwitcher
 - [CustomGames](#customgames)  
 - [Shortcut](#shortcut)  
 - [Usage](#usage)  
+- [Examples](#examples)
   
 # Description
 A simple python script to switch steam gameversions.  
@@ -26,26 +27,28 @@ https://github.com/marvin1099/SteamGameSwitcher/releases
 Put the script in your /Steam/steamapps/ folder.  
 There should be a lot of appmanifest files in there.  
 At default the script will create a config for the Satisfatory versions.  
-To make it work set your Satisfatory versions to experimental in Steam.  
-Steam does not need to download the new files so close it then continue.  
+Make shure you have steamcmd installed and in your system path vars.
 Run the script, at this point you can switch gameversions by running the script.
 
 # CustomGames
 The script can be copyed and renamed to have a script for multiple games.  
-To change the game open the 'SCRIPTNAME.json' file.  
-of corse SCRIPTNAME needs to be the scriptname and the ' symbol is not in the filename.  
-Next change the gamename to the new gamename.  
-Next change the gameid to the new gameid.  
-Next in gameversions you need to change/add the list like the following.  
+So for the game Portal you might use the name SGS-Portal.py.  
+The portal id is 400 so you need to replace GAMEID in ./SGS-Portal.py id GAMEID:  
+So run the script like this
 
-    "versions" : [  
-        ["HERE-FOLDER-END","HERE-GAME-VERSION"],  
-        ["HERE-OTHERFOLDER-END","HERE-OTHERGAME-VERSION"],  
-        ...   
-        ["HERE-LASTFOLDER-END","HERE-LASTGAME-VERSION"]  
-    ]  
-You probably want the nomal version/first entry to have no additonal folder end.  
-The script will always prefix the gamename in front of HERE-FOLDER-END.  
+    ./SGS-Portal.py id 400
+To change any settings open the 'SCRIPTNAME.txt' file.  
+Of course SCRIPTNAME needs to be the scriptname and the ' symbol is not in the filename.   
+You for example you can cange the folder that is used for a beta,  
+by editing the shortver section
+
+    "shortver"
+    {
+	    ""		"" 
+    }
+The first on the left "" is the pulic version entry and allways exsists.  
+Here you can change the right to change the Folder prefix.  
+So on the example portal "PUPLIC" on the right will result in the folder PortalPUPLIC.  
 
 # Shortcut
 You might want to make a shortcut for loding a specific version.  
@@ -56,12 +59,17 @@ In the argument field you can now and the index of your desired version.
 For other arguments see usage below.  
 
 # Usage
-    Use the following characters as arguments (only one can be used)
-    Use 'h' for this help message and exit (whitout argumets this will also start help but will continue as if 's'was supplied)
-    Use 's' to switch versions
-    Eg.   script.py s    will switch versions
-    Use 'r' to reverse switch versions
-    Use any number it will use the corespondig version from the gameinfo dict
-    Eg.   script.py 1    will start version experimental
-    The script is now going to use 's' unless 'h' was used
-    Exiting
+    h               To display this help and exit
+    id GAMEID       To set the game (id) the script uses
+    VERSION         Valid values are
+                        0 to circle (default), - to reverse circle
+                        INDEX to select a index (eg 2 gets branch 2, -2 gets 2end last)
+                        NAME to select name (eg '' for public or experimental)
+
+# Examples
+    ./SGS.py 0
+will circle all branches
+
+    ./SGS.py ""
+will select the public branch
+
