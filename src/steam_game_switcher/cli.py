@@ -8,6 +8,8 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from platformdirs import user_desktop_path
+
 from .acf import load_acf, save_acf_atomic
 from .backups import (
     add_backup,
@@ -18,9 +20,10 @@ from .backups import (
 )
 from .errors import SteamCMDNotFoundError, SwitcherError
 from .paths import find_manifest, install_dir_component_limit
+from .shortcuts import generate_shortcuts
 from .state import default_config_path, load_state, save_state
 from .steamcmd import get_available_branches
-from .steamcmd_install import install_steamcmd
+from .steamcmd_install import find_steamcmd, install_steamcmd
 from .switcher import active_branch, branch_label, build_switch_plan
 
 DEFAULT_APP_ID = 526870
@@ -39,7 +42,7 @@ def _positive_int(value: str) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="steam-game-switcher",
-        description="List and switch public Steam branches by editing a local appmanifest.",
+        description=("List and switch public branches, or generate launchers for branch switches."),
     )
     parser.add_argument(
         "--app-id",
@@ -56,7 +59,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config", type=Path, default=default_config_path(), help="config/state JSON file"
     )
-    parser.add_argument("--steamcmd", help="SteamCMD executable (default: search PATH)")
+    parser.add_argument(
+        "--steamcmd",
+        help="SteamCMD executable (default: search the SGS user install and PATH)",
+    )
     parser.add_argument("--refresh", action="store_true", help="refresh branch data from SteamCMD")
 
     commands = parser.add_subparsers(dest="command", required=True)
@@ -99,6 +105,21 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="replace the existing user-local SteamCMD install",
     )
+    shortcuts = commands.add_parser(
+        "shortcuts", help="generate launchers for selected branch switches"
+    )
+    shortcuts.add_argument(
+        "targets",
+        nargs="+",
+        help="branch names or indices (negative indices count from the end)",
+    )
+    shortcuts.add_argument(
+        "--output",
+        type=Path,
+        default=Path(user_desktop_path()),
+        help="output directory (default: the user's desktop)",
+    )
+    shortcuts.add_argument("--force", action="store_true", help="replace existing shortcut files")
     return parser
 
 
@@ -135,6 +156,44 @@ def _run_branches(args: argparse.Namespace) -> int:
     for index, branch in enumerate(branches, start=1):
         print(f"{index:>2}. {branch_label(branch)}")
     save_state(args.config, root_state)
+    return 0
+
+
+def _run_shortcuts(args: argparse.Namespace) -> int:
+    manifest_path = _manifest_path(args)
+    manifest = _load_and_validate_manifest(manifest_path, args.app_id)
+    root_state, game_state = load_state(args.config, args.app_id)
+    branches, warning = get_available_branches(
+        args.app_id,
+        game_state,
+        args.steamcmd,
+        force_refresh=args.refresh,
+    )
+    if warning:
+        print(f"Warning: {warning}", file=sys.stderr)
+    if not branches:
+        raise SwitcherError("SteamCMD returned no public branches for this game.")
+
+    app_state = manifest["AppState"]
+    shortcut_steamcmd = args.steamcmd
+    if shortcut_steamcmd:
+        shortcut_steamcmd = find_steamcmd(shortcut_steamcmd) or shortcut_steamcmd
+    created = generate_shortcuts(
+        branches=branches,
+        selections=args.targets,
+        current_branch=active_branch(manifest),
+        app_id=args.app_id,
+        game_name=str(app_state.get("name") or "Game"),
+        manifest_path=manifest_path,
+        config_path=args.config.expanduser().resolve(),
+        output_directory=args.output,
+        executable=sys.executable,
+        steamcmd=shortcut_steamcmd,
+        force=args.force,
+    )
+    save_state(args.config, root_state)
+    for shortcut in created:
+        print(f"Created shortcut: {shortcut}")
     return 0
 
 
@@ -349,6 +408,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_status(args)
         if args.command == "switch":
             return _run_switch(args)
+        if args.command == "shortcuts":
+            return _run_shortcuts(args)
         if args.command == "backups":
             return _run_backups(args)
         if args.command == "restore":

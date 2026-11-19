@@ -216,3 +216,38 @@ def test_cli_installs_steamcmd_for_user(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert str(executable) in output
     assert "installed or repaired" in output
+
+
+def test_cli_generates_shortcuts_for_selected_branch_indices(tmp_path, monkeypatch, capsys):
+    manifest_path = tmp_path / "appmanifest_1234.acf"
+    config_path = tmp_path / "config.json"
+    output_directory = tmp_path / "Desktop"
+    save_acf_atomic(manifest_path, _manifest())
+    monkeypatch.setattr(
+        cli,
+        "get_available_branches",
+        lambda *_args, **_kwargs: (["", "experimental", "preview"], None),
+    )
+
+    exit_code = cli.main(
+        [
+            "--app-id",
+            "1234",
+            "--manifest",
+            str(manifest_path),
+            "--config",
+            str(config_path),
+            "shortcuts",
+            "-1",
+            "2",
+            "--output",
+            str(output_directory),
+        ]
+    )
+
+    assert exit_code == 0
+    assert (output_directory / "sgs-1234-preview.desktop").is_file()
+    assert (output_directory / "sgs-1234-experimental.desktop").is_file()
+    output = capsys.readouterr().out
+    assert "sgs-1234-preview.desktop" in output
+    assert "sgs-1234-experimental.desktop" in output

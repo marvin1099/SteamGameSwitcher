@@ -84,6 +84,9 @@ uv run sgs --app-id 400 --steamapps "/path/to/Steam/steamapps" switch public
 # Preview a switch without changing the manifest or saved configuration
 uv run sgs switch experimental --dry-run
 
+# Generate desktop launchers for selected branches (-1 is the last branch)
+uv run sgs shortcuts -1 experimental
+
 # Browse saved manifest backups and restore one by ID
 uv run sgs backups
 uv run sgs restore 0123456789abcdef  # replace with an ID shown by backups
@@ -100,9 +103,14 @@ are one-based; negative indices count from the end (`-1` is the last branch).
 `0`, `next`, and no target select the next branch; `-`, `prev`, and `previous`
 select the previous branch. The public branch can be selected with `public`.
 
-Use `--refresh` before `branches` or `switch` to refresh SteamCMD's branch data
-instead of using the 24-hour cache. If SteamCMD is unavailable during a refresh,
-SGS uses an existing cached branch list and prints a warning.
+`sgs shortcuts` creates one launcher per selected branch in the user's Desktop
+directory by default. Linux gets `.desktop` files, Windows gets hidden `.vbs`
+launchers, and macOS gets executable `.command` files. Use `--output DIR` to
+choose another folder and `--force` to replace existing generated files.
+
+Use `--refresh` before `branches`, `switch`, or `shortcuts` to refresh SteamCMD's
+branch data instead of using the 24-hour cache. If SteamCMD is unavailable during
+a refresh, SGS uses an existing cached branch list and prints a warning.
 
 ## Per-game settings and install directories
 

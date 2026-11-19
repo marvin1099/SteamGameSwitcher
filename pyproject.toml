@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "steam-game-switcher"
 version = "1.0.0"
-description = "Switch Steam game branches from the command line"
+description = "Switch Steam game branches and generate desktop launchers"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "AGPL-3.0-or-later"
