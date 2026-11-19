@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import os
-import shutil
 import tempfile
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -69,14 +67,3 @@ def save_acf_atomic(path: Path, data: dict[str, Any]) -> None:
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
-
-
-def create_backup(path: Path) -> Path:
-    """Create a timestamped sibling backup and return its path."""
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
-    backup_path = path.with_name(f"{path.name}.{timestamp}.bak")
-    try:
-        shutil.copy2(path, backup_path)
-    except OSError as error:
-        raise SwitcherError(f"Could not back up manifest '{path}': {error}") from error
-    return backup_path

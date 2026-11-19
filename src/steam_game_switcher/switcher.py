@@ -98,7 +98,7 @@ def build_switch_plan(
     target: str,
     separate_install_dirs: bool,
 ) -> SwitchPlan:
-    """Build a new manifest and update the in-memory branch profiles."""
+    """Build a new appmanifest without modifying the input manifest."""
     original_app_state = manifest.get("AppState")
     if not isinstance(original_app_state, dict):
         raise SwitcherError("The manifest is missing its 'AppState' section.")
@@ -108,15 +108,10 @@ def build_switch_plan(
     old_branch = active_branch(manifest)
     new_branch = resolve_branch(branches, old_branch, target)
 
-    profiles = game_state.setdefault("profiles", {})
     install_dirs = game_state.setdefault("install_dirs", {})
-    profiles[old_branch] = copy.deepcopy(manifest)
-
-    saved_profile = profiles.get(new_branch)
-    if isinstance(saved_profile, dict) and isinstance(saved_profile.get("AppState"), dict):
-        new_manifest = copy.deepcopy(saved_profile)
-    else:
-        new_manifest = copy.deepcopy(manifest)
+    if separate_install_dirs and old_branch not in install_dirs:
+        install_dirs[old_branch] = _safe_install_dir(current_install_dir)
+    new_manifest = copy.deepcopy(manifest)
 
     app_state = new_manifest.setdefault("AppState", {})
     app_state.setdefault("UserConfig", {})["BetaKey"] = new_branch
@@ -133,7 +128,6 @@ def build_switch_plan(
         new_install_dir = current_install_dir
     app_state["installdir"] = new_install_dir
 
-    profiles[new_branch] = copy.deepcopy(new_manifest)
     return SwitchPlan(
         old_branch=old_branch,
         new_branch=new_branch,

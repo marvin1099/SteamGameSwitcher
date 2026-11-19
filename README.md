@@ -1,9 +1,7 @@
 # Steam Game Switcher
 
-Steam Game Switcher (SGS) is a small command-line tool for switching a game's
-selected Steam branch by safely updating its local `appmanifest_<app-id>.acf`.
-It is based on the branch switching, per-branch manifest profiles, custom App IDs,
-and optional separate install-directory ideas in the earlier SGS prototypes.
+Steam Game Switcher (SGS) is a command-line tool for switching a game's selected
+Steam branch by safely updating its local `appmanifest_<app-id>.acf`.
 
 - Main repository: <https://codeberg.org/marvin1099/SteamGameSwitcher>
 - GitHub mirror: <https://github.com/marvin1099/SteamGameSwitcher>
@@ -60,6 +58,10 @@ uv run sgs --app-id 400 --steamapps "/path/to/Steam/steamapps" switch public
 
 # Preview a switch without changing the manifest or saved configuration
 uv run sgs switch experimental --dry-run
+
+# Browse saved manifest backups and restore one by ID
+uv run sgs backups
+uv run sgs restore 0123456789abcdef  # replace with an ID shown by backups
 ```
 
 Target names are case-sensitive and must match a public branch. Numeric indices
@@ -71,44 +73,42 @@ Use `--refresh` before `branches` or `switch` to refresh SteamCMD's branch data
 instead of using the 24-hour cache. If SteamCMD is unavailable during a refresh,
 SGS uses an existing cached branch list and prints a warning.
 
-## Separate install directories
+## Per-game settings and install directories
 
-By default, branch switches keep the current `installdir`, matching Steam's
-usual shared-install behavior. To opt into different manifest install-directory
-names per branch:
+Separate install directories are enabled by default for each App ID. Branches
+get names such as `Satisfactory` and `Satisfactory-experimental`, allowing the
+installed files for each branch to remain separate. To use a shared folder for
+one game instead:
 
 ```sh
-uv run sgs switch experimental --separate-folders
+uv run sgs switch experimental --shared-folder
 ```
 
-SGS derives safe folder names such as `Satisfactory-experimental`; custom names
-can be set in the JSON config under the selected game's `install_dirs` mapping.
-`--shared-folder` switches back to the current shared folder. This feature only
-changes the directory name recorded in the appmanifest: it does not copy, move,
-or duplicate game files. Steam manages the actual download and installation.
+Use `--separate-folders` to re-enable separate directories for that game. The
+setting is saved per App ID. Custom folder names can be set in the JSON config
+under that game's `install_dirs` mapping. SGS changes the install directory in
+the appmanifest; Steam manages the actual download and installation.
 
-Before switching, SGS saves a timestamped backup beside the appmanifest and keeps
-a local manifest profile for each branch. It writes manifests atomically and
-never terminates Steam processes. For best results, exit Steam before switching
-so Steam cannot overwrite a manifest while it is being edited.
+Before switching, SGS saves the previous appmanifest data in `backups.json` next
+to the config file. Identical backups for the same game and manifest path are
+deduplicated. Manifests are written atomically, and Steam is never terminated.
+For best results, exit Steam before switching so it cannot overwrite a manifest
+while SGS is editing it.
 
-## Configuration and compatibility
+## Configuration and recovery
 
 The JSON state file is stored in the operating system's user configuration
 directory (via `platformdirs`). Override its location with `--config`. State is
-kept per App ID and contains the public-branch cache, branch manifest profiles,
-and optional install-directory names. Old script-specific `.txt` VDF configs
-are not imported automatically; existing Steam appmanifests are still used.
-
-The original script name remains available as a compatibility launcher:
+kept per App ID and contains the public-branch cache, the separate-directory
+setting, and optional install-directory names. Backups store the parsed ACF data
+as JSON and can be listed with `sgs backups` and restored with `sgs restore ID`.
+Restoring also backs up the current manifest first, unless that exact state is
+already present in the backup index. Pass `--manifest` to restore to a different
+path than the one recorded in the backup, placing the option before the command:
 
 ```sh
-python SGS.py 2
-python SGS.py id 400 experimental
+uv run sgs --manifest "/path/to/appmanifest_526870.acf" restore 0123456789abcdef
 ```
-
-New use should prefer the installed `sgs` command and its `branches`, `status`,
-and `switch` subcommands.
 
 ## Development
 

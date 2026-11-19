@@ -7,7 +7,14 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from .acf import create_backup, load_acf, save_acf_atomic
+from .acf import load_acf, save_acf_atomic
+from .backups import (
+    add_backup,
+    backup_store_path,
+    find_backup,
+    load_backup_store,
+    save_backup_store,
+)
 from .errors import SwitcherError
 from .paths import find_manifest
 from .state import default_config_path, load_state, save_state
@@ -68,13 +75,20 @@ def _build_parser() -> argparse.ArgumentParser:
     folder_options.add_argument(
         "--separate-folders",
         action="store_true",
-        help="use a different Steam install directory name per branch",
+        help="enable separate install directories for this game's setting",
     )
     folder_options.add_argument(
         "--shared-folder",
         action="store_true",
-        help="use the current install directory for every branch",
+        help="disable separate install directories for this game",
     )
+
+    backups = commands.add_parser("backups", help="list saved appmanifest backups")
+    backups.add_argument("--all", action="store_true", help="show backups for every App ID")
+
+    restore = commands.add_parser("restore", help="restore an appmanifest backup by ID")
+    restore.add_argument("backup_id", help="ID shown by the backups command")
+    restore.add_argument("--dry-run", action="store_true", help="preview without writing files")
     return parser
 
 
@@ -122,6 +136,9 @@ def _run_status(args: argparse.Namespace) -> int:
     print(f"Game: {app_state.get('name', 'Unknown game')} (App ID {args.app_id})")
     print(f"Branch: {branch_label(branch)}")
     print(f"Install directory: {app_state['installdir']}")
+    _, game_state = load_state(args.config, args.app_id)
+    setting = "enabled" if game_state["separate_install_dirs"] else "disabled"
+    print(f"Separate install directories: {setting}")
     print(f"Manifest: {path}")
     return 0
 
@@ -140,7 +157,7 @@ def _run_switch(args: argparse.Namespace) -> int:
         game_state["separate_install_dirs"] = True
     elif args.shared_folder:
         game_state["separate_install_dirs"] = False
-    separate_dirs = bool(game_state.get("separate_install_dirs", False))
+    separate_dirs = bool(game_state.get("separate_install_dirs", True))
     plan = build_switch_plan(
         manifest,
         game_state,
@@ -163,12 +180,89 @@ def _run_switch(args: argparse.Namespace) -> int:
         print("Dry run: no files were changed.")
         return 0
 
-    backup_path = create_backup(manifest_path)
+    backup_path = backup_store_path(args.config)
+    backup_store = load_backup_store(backup_path)
+    backup_id, backup_created = add_backup(
+        backup_store,
+        args.app_id,
+        manifest_path,
+        manifest,
+        plan.old_branch,
+    )
+    if backup_created:
+        save_backup_store(backup_path, backup_store)
     save_acf_atomic(manifest_path, plan.manifest)
     save_state(args.config, root_state)
     print(f"Manifest updated: {manifest_path}")
-    print(f"Backup created: {backup_path}")
+    if backup_created:
+        print(f"Backup saved as {backup_id} in {backup_path}")
+    else:
+        print(f"Backup {backup_id} already contains this manifest; duplicate not saved.")
     print("Steam may need to be restarted to notice the branch change.")
+    return 0
+
+
+def _run_backups(args: argparse.Namespace) -> int:
+    path = backup_store_path(args.config)
+    store = load_backup_store(path)
+    entries = store["entries"]
+    if not args.all:
+        entries = [entry for entry in entries if entry.get("app_id") == args.app_id]
+    entries = sorted(entries, key=lambda entry: entry.get("created_at", ""), reverse=True)
+    if not entries:
+        print("No backups found.")
+        return 0
+
+    for entry in entries:
+        branch = branch_label(str(entry.get("branch") or ""))
+        print(
+            f"{entry.get('id', '?')}  App {entry.get('app_id', '?')}  {branch}  "
+            f"{entry.get('created_at', 'unknown time')}  {entry.get('manifest_path', '')}"
+        )
+    return 0
+
+
+def _run_restore(args: argparse.Namespace) -> int:
+    backup_path = backup_store_path(args.config)
+    store = load_backup_store(backup_path)
+    entry = find_backup(store, args.backup_id)
+    app_id = entry["app_id"]
+    saved_data = entry["data"]
+
+    if args.manifest is not None:
+        manifest_path = args.manifest.expanduser().resolve()
+    elif args.steamapps is not None:
+        manifest_path = (args.steamapps.expanduser() / f"appmanifest_{app_id}.acf").resolve()
+    else:
+        manifest_path = Path(entry["manifest_path"]).expanduser().resolve()
+
+    current_data = None
+    if manifest_path.exists():
+        current_data = load_acf(manifest_path)
+        current_app_state = current_data.get("AppState")
+        if not isinstance(current_app_state, dict):
+            raise SwitcherError(f"Manifest '{manifest_path}' is missing its 'AppState' section.")
+        current_app_id = current_app_state.get("appid")
+        if current_app_id is not None and str(current_app_id) != str(app_id):
+            raise SwitcherError(
+                f"Manifest '{manifest_path}' is for App ID {current_app_id}, not {app_id}."
+            )
+        if current_data == saved_data:
+            print(f"Manifest already matches backup {args.backup_id}; no changes needed.")
+            return 0
+
+    print(f"Restore backup {args.backup_id} for App ID {app_id} to {manifest_path}")
+    if args.dry_run:
+        print("Dry run: no files were changed.")
+        return 0
+
+    if current_data is not None:
+        current_branch = active_branch(current_data)
+        _, backup_created = add_backup(store, app_id, manifest_path, current_data, current_branch)
+        if backup_created:
+            save_backup_store(backup_path, store)
+    save_acf_atomic(manifest_path, saved_data)
+    print(f"Manifest restored: {manifest_path}")
     return 0
 
 
@@ -183,7 +277,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_branches(args)
         if args.command == "status":
             return _run_status(args)
-        return _run_switch(args)
+        if args.command == "switch":
+            return _run_switch(args)
+        if args.command == "backups":
+            return _run_backups(args)
+        return _run_restore(args)
     except SwitcherError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2

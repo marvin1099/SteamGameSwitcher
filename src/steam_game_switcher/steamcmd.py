@@ -103,7 +103,7 @@ def fetch_public_branches(app_id: int, executable: str | None = None) -> list[st
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=90,
+            timeout=180,
             check=False,
         )
     except FileNotFoundError as error:

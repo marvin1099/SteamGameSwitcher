@@ -38,7 +38,7 @@ def test_switch_plan_preserves_profile_and_uses_shared_folder():
         }
     }
     original = copy.deepcopy(manifest)
-    game_state = {"profiles": {}, "install_dirs": {}}
+    game_state = {"install_dirs": {}}
 
     plan = build_switch_plan(manifest, game_state, ["", "experimental"], "experimental", False)
 
@@ -46,7 +46,6 @@ def test_switch_plan_preserves_profile_and_uses_shared_folder():
     assert plan.new_branch == "experimental"
     assert plan.manifest["AppState"]["UserConfig"]["BetaKey"] == "experimental"
     assert plan.manifest["AppState"]["installdir"] == "Example Game"
-    assert game_state["profiles"][""] == original
     assert manifest == original
 
 
@@ -59,7 +58,7 @@ def test_switch_plan_can_use_a_separate_folder_per_branch():
             "UserConfig": {"BetaKey": ""},
         }
     }
-    game_state = {"profiles": {}, "install_dirs": {}}
+    game_state = {"install_dirs": {}}
 
     plan = build_switch_plan(manifest, game_state, ["", "experimental"], "experimental", True)
 
@@ -75,7 +74,7 @@ def test_switch_plan_rejects_unsafe_custom_install_directory():
             "UserConfig": {"BetaKey": ""},
         }
     }
-    game_state = {"profiles": {}, "install_dirs": {"experimental": "../outside"}}
+    game_state = {"install_dirs": {"experimental": "../outside"}}
 
     with pytest.raises(SwitcherError, match="single folder name"):
         build_switch_plan(manifest, game_state, ["", "experimental"], "experimental", True)

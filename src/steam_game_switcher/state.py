@@ -1,4 +1,4 @@
-"""Persistent per-game settings, branch cache, and manifest snapshots."""
+"""Persistent per-game settings and branch cache."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from platformdirs import user_config_path
 
 from .errors import SwitcherError
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def default_config_path() -> Path:
@@ -33,11 +33,22 @@ def load_state(path: Path, app_id: int) -> tuple[dict[str, Any], dict[str, Any]]
     else:
         root = {}
 
-    root.setdefault("schema_version", SCHEMA_VERSION)
-    if root["schema_version"] != SCHEMA_VERSION:
+    schema_version = root.get("schema_version", 1)
+    if schema_version == 1:
+        legacy_games = root.get("games", {})
+        if isinstance(legacy_games, dict):
+            for legacy_game in legacy_games.values():
+                if (
+                    isinstance(legacy_game, dict)
+                    and legacy_game.get("separate_install_dirs") is False
+                ):
+                    # v1's default was shared folders; v2 defaults to isolation per game.
+                    legacy_game["separate_install_dirs"] = True
+        root["schema_version"] = SCHEMA_VERSION
+    elif schema_version != SCHEMA_VERSION:
         raise SwitcherError(
             f"Config '{path}' uses unsupported schema version "
-            f"{root['schema_version']!r}; expected {SCHEMA_VERSION}."
+            f"{schema_version!r}; expected {SCHEMA_VERSION}."
         )
 
     games = root.setdefault("games", {})
@@ -48,19 +59,19 @@ def load_state(path: Path, app_id: int) -> tuple[dict[str, Any], dict[str, Any]]
         str(app_id),
         {
             "branch_cache": {"fetched_at": 0, "branches": []},
-            "profiles": {},
             "install_dirs": {},
-            "separate_install_dirs": False,
+            "separate_install_dirs": True,
         },
     )
     if not isinstance(game, dict):
         raise SwitcherError(f"Config entry for App ID {app_id} must be a JSON object.")
 
     game.setdefault("branch_cache", {"fetched_at": 0, "branches": []})
-    game.setdefault("profiles", {})
     game.setdefault("install_dirs", {})
-    game.setdefault("separate_install_dirs", False)
-    for key in ("branch_cache", "profiles", "install_dirs"):
+    game.setdefault("separate_install_dirs", True)
+    # Branch snapshots are held in the recoverable backups.json store, not config.json.
+    game.pop("profiles", None)
+    for key in ("branch_cache", "install_dirs"):
         if not isinstance(game[key], dict):
             raise SwitcherError(f"Config entry for App ID {app_id} has an invalid '{key}' section.")
     return root, game
