@@ -10,6 +10,19 @@ import vdf
 
 from .errors import SwitcherError
 
+DEFAULT_NAME_MAX = 255
+
+
+def install_dir_component_limit(manifest_path: Path) -> int:
+    """Return the destination filesystem's single-component name limit."""
+    common_directory = manifest_path.parent / "common"
+    probe_path = common_directory if common_directory.is_dir() else manifest_path.parent
+    try:
+        limit = os.pathconf(probe_path, "PC_NAME_MAX")
+    except (AttributeError, OSError, ValueError):
+        return DEFAULT_NAME_MAX
+    return limit if limit > 0 else DEFAULT_NAME_MAX
+
 
 def _steam_roots() -> list[Path]:
     home = Path.home()

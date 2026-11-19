@@ -119,8 +119,10 @@ Use `--separate-folders` to re-enable separate directories for that game. The
 setting is saved per App ID. Custom folder names can be set in the JSON config
 under that game's `install_dirs` mapping. SGS changes the install directory in
 the appmanifest; Steam manages the actual download and installation. Folder names
-must be portable single components no longer than 240 UTF-8 bytes. SGS shortens
-generated names when needed and rejects overlong custom names.
+must be portable single components. SGS checks the destination filesystem's
+component-length limit, shortens generated names that exceed it, and rejects
+overlong custom names. On common Linux filesystems, this limit is 255 bytes;
+the exact value depends on the destination filesystem.
 
 Before switching, SGS saves the previous appmanifest data in `backups.json` next
 to the config file. Identical backups for the same game and manifest path are

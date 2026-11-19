@@ -127,7 +127,7 @@ def test_generated_install_directory_is_portable_and_custom_name_is_validated():
         )
 
 
-def test_generated_unicode_install_directory_is_limited_by_utf8_bytes():
+def test_generated_unicode_install_directory_respects_component_limit():
     manifest = {
         "AppState": {
             "appid": "1234",
@@ -143,13 +143,14 @@ def test_generated_unicode_install_directory_is_limited_by_utf8_bytes():
         ["", "experimental"],
         "experimental",
         True,
+        max_component_length=255,
     )
 
-    assert len(plan.new_install_dir.encode("utf-8")) <= 240
+    assert len(plan.new_install_dir.encode("utf-8")) <= 255
     assert len(plan.new_install_dir.rsplit("-", maxsplit=1)[-1]) == 10
 
 
-def test_custom_install_directory_over_byte_limit_is_rejected():
+def test_custom_install_directory_over_component_limit_is_rejected():
     manifest = {
         "AppState": {
             "appid": "1234",
@@ -159,11 +160,12 @@ def test_custom_install_directory_over_byte_limit_is_rejected():
         }
     }
 
-    with pytest.raises(SwitcherError, match="240 UTF-8 bytes"):
+    with pytest.raises(SwitcherError, match="filesystem's component limit of 255"):
         build_switch_plan(
             manifest,
-            {"install_dirs": {"experimental": "a" * 241}},
+            {"install_dirs": {"experimental": "a" * 256}},
             ["", "experimental"],
             "experimental",
             True,
+            max_component_length=255,
         )

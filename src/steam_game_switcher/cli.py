@@ -17,7 +17,7 @@ from .backups import (
     save_backup_store,
 )
 from .errors import SteamCMDNotFoundError, SwitcherError
-from .paths import find_manifest
+from .paths import find_manifest, install_dir_component_limit
 from .state import default_config_path, load_state, save_state
 from .steamcmd import get_available_branches
 from .steamcmd_install import install_steamcmd
@@ -174,6 +174,7 @@ def _run_switch(args: argparse.Namespace) -> int:
         branches,
         args.target,
         separate_install_dirs=separate_dirs,
+        max_component_length=install_dir_component_limit(manifest_path),
     )
 
     if args.dry_run:

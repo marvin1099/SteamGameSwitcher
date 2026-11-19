@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import os
 import re
 from dataclasses import dataclass
 from pathlib import PurePath
@@ -20,7 +21,7 @@ _WINDOWS_RESERVED_NAMES = {
     *(f"COM{number}" for number in range(1, 10)),
     *(f"LPT{number}" for number in range(1, 10)),
 }
-MAX_INSTALL_DIR_BYTES = 240
+DEFAULT_INSTALL_DIR_COMPONENT_LIMIT = 255
 
 
 @dataclass(frozen=True)
@@ -82,14 +83,25 @@ def resolve_branch(branches: list[str], current: str, target: str) -> str:
     return requested
 
 
-def _safe_install_dir(name: str) -> str:
+def _component_length(name: str) -> int:
+    if os.name == "nt":
+        return len(name.encode("utf-16-le")) // 2
+    return len(name.encode("utf-8"))
+
+
+def _component_length_unit() -> str:
+    return "UTF-16 code units" if os.name == "nt" else "UTF-8 bytes"
+
+
+def _safe_install_dir(name: str, max_component_length: int) -> str:
     try:
-        encoded_name = name.encode("utf-8")
+        component_length = _component_length(name)
     except UnicodeEncodeError as error:
         raise SwitcherError("Install directory must contain valid Unicode characters.") from error
-    if len(encoded_name) > MAX_INSTALL_DIR_BYTES:
+    if component_length > max_component_length:
         raise SwitcherError(
-            f"Install directory must not exceed {MAX_INSTALL_DIR_BYTES} UTF-8 bytes."
+            f"Install directory exceeds this filesystem's component limit of "
+            f"{max_component_length} {_component_length_unit()}."
         )
     if (
         not name
@@ -105,7 +117,7 @@ def _safe_install_dir(name: str) -> str:
     return name
 
 
-def _safe_generated_component(name: str) -> str:
+def _safe_generated_component(name: str, max_component_length: int) -> str:
     result = _WINDOWS_INVALID_CHARS.sub("-", name).rstrip(". ").strip()
     if not result or result in {".", ".."}:
         result = "Game"
@@ -115,20 +127,20 @@ def _safe_generated_component(name: str) -> str:
         encoded_result = result.encode("utf-8")
     except UnicodeEncodeError as error:
         raise SwitcherError("Generated install directory contains invalid Unicode.") from error
-    if len(encoded_result) > MAX_INSTALL_DIR_BYTES:
+    if _component_length(result) > max_component_length:
         digest = hashlib.sha256(encoded_result).hexdigest()[:10]
         suffix = f"-{digest}"
-        prefix_limit = MAX_INSTALL_DIR_BYTES - len(suffix.encode("utf-8"))
+        prefix_limit = max_component_length - _component_length(suffix)
         prefix: list[str] = []
-        prefix_bytes = 0
+        prefix_length = 0
         for character in result:
-            character_bytes = len(character.encode("utf-8"))
-            if prefix_bytes + character_bytes > prefix_limit:
+            character_length = _component_length(character)
+            if prefix_length + character_length > prefix_limit:
                 break
             prefix.append(character)
-            prefix_bytes += character_bytes
+            prefix_length += character_length
         result = f"{''.join(prefix).rstrip('. ')}{suffix}"
-    return _safe_install_dir(result)
+    return _safe_install_dir(result, max_component_length)
 
 
 def _branch_slug(branch: str) -> str:
@@ -138,8 +150,13 @@ def _branch_slug(branch: str) -> str:
     return slug
 
 
-def _default_install_dir(game_name: str, branch: str, branches: list[str]) -> str:
-    base = _safe_generated_component(game_name)
+def _default_install_dir(
+    game_name: str,
+    branch: str,
+    branches: list[str],
+    max_component_length: int,
+) -> str:
+    base = _safe_generated_component(game_name, max_component_length)
     if not branch:
         return base
 
@@ -150,7 +167,7 @@ def _default_install_dir(game_name: str, branch: str, branches: list[str]) -> st
     if slug_collides:
         branch_hash = hashlib.sha256(branch.encode("utf-8")).hexdigest()[:10]
         slug = f"{slug}-{branch_hash}"
-    return _safe_generated_component(f"{base}-{slug}")
+    return _safe_generated_component(f"{base}-{slug}", max_component_length)
 
 
 def _install_dir_for_branch(
@@ -158,13 +175,14 @@ def _install_dir_for_branch(
     branch: str,
     branches: list[str],
     install_dirs: dict[str, Any],
+    max_component_length: int,
 ) -> str:
     configured_dir = install_dirs.get(branch)
     uses_custom_dir = isinstance(configured_dir, str)
     if uses_custom_dir:
-        candidate = _safe_install_dir(configured_dir)
+        candidate = _safe_install_dir(configured_dir, max_component_length)
     else:
-        candidate = _default_install_dir(game_name, branch, branches)
+        candidate = _default_install_dir(game_name, branch, branches, max_component_length)
 
     other_dirs: set[str] = set()
     for other_branch in set(branches).union(install_dirs):
@@ -172,9 +190,14 @@ def _install_dir_for_branch(
             continue
         other_configured = install_dirs.get(other_branch)
         if isinstance(other_configured, str):
-            other_dir = _safe_install_dir(other_configured)
+            other_dir = _safe_install_dir(other_configured, max_component_length)
         else:
-            other_dir = _default_install_dir(game_name, other_branch, branches)
+            other_dir = _default_install_dir(
+                game_name,
+                other_branch,
+                branches,
+                max_component_length,
+            )
         other_dirs.add(other_dir.casefold())
 
     if candidate.casefold() in other_dirs:
@@ -185,8 +208,9 @@ def _install_dir_for_branch(
             )
         label = _branch_slug(branch) if branch else "public"
         branch_hash = hashlib.sha256(branch.encode("utf-8")).hexdigest()
-        candidate_name = f"{_safe_generated_component(game_name)}-{label}-{branch_hash[:10]}"
-        candidate = _safe_generated_component(candidate_name)
+        candidate_base = _safe_generated_component(game_name, max_component_length)
+        candidate_name = f"{candidate_base}-{label}-{branch_hash[:10]}"
+        candidate = _safe_generated_component(candidate_name, max_component_length)
         if candidate.casefold() in other_dirs:
             raise SwitcherError(f"Could not generate a unique install directory for {branch!r}.")
     return candidate
@@ -198,6 +222,7 @@ def build_switch_plan(
     branches: list[str],
     target: str,
     separate_install_dirs: bool,
+    max_component_length: int = DEFAULT_INSTALL_DIR_COMPONENT_LIMIT,
 ) -> SwitchPlan:
     """Build a new appmanifest without modifying the input manifest."""
     original_app_state = manifest.get("AppState")
@@ -211,7 +236,7 @@ def build_switch_plan(
 
     install_dirs = game_state.setdefault("install_dirs", {})
     if separate_install_dirs and old_branch not in install_dirs:
-        install_dirs[old_branch] = _safe_install_dir(current_install_dir)
+        install_dirs[old_branch] = _safe_install_dir(current_install_dir, max_component_length)
     new_manifest = copy.deepcopy(manifest)
 
     app_state = new_manifest.setdefault("AppState", {})
@@ -224,6 +249,7 @@ def build_switch_plan(
             new_branch,
             branches,
             install_dirs,
+            max_component_length,
         )
     else:
         new_install_dir = current_install_dir
