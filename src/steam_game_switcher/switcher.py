@@ -20,6 +20,7 @@ _WINDOWS_RESERVED_NAMES = {
     *(f"COM{number}" for number in range(1, 10)),
     *(f"LPT{number}" for number in range(1, 10)),
 }
+MAX_INSTALL_DIR_BYTES = 240
 
 
 @dataclass(frozen=True)
@@ -82,6 +83,14 @@ def resolve_branch(branches: list[str], current: str, target: str) -> str:
 
 
 def _safe_install_dir(name: str) -> str:
+    try:
+        encoded_name = name.encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise SwitcherError("Install directory must contain valid Unicode characters.") from error
+    if len(encoded_name) > MAX_INSTALL_DIR_BYTES:
+        raise SwitcherError(
+            f"Install directory must not exceed {MAX_INSTALL_DIR_BYTES} UTF-8 bytes."
+        )
     if (
         not name
         or name in {".", ".."}
@@ -102,9 +111,23 @@ def _safe_generated_component(name: str) -> str:
         result = "Game"
     if result.split(".", maxsplit=1)[0].upper() in _WINDOWS_RESERVED_NAMES:
         result = f"Game-{result}"
-    if len(result) > 180:
-        digest = hashlib.sha256(result.encode("utf-8")).hexdigest()[:10]
-        result = f"{result[:165].rstrip('. ')}-{digest}"
+    try:
+        encoded_result = result.encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise SwitcherError("Generated install directory contains invalid Unicode.") from error
+    if len(encoded_result) > MAX_INSTALL_DIR_BYTES:
+        digest = hashlib.sha256(encoded_result).hexdigest()[:10]
+        suffix = f"-{digest}"
+        prefix_limit = MAX_INSTALL_DIR_BYTES - len(suffix.encode("utf-8"))
+        prefix: list[str] = []
+        prefix_bytes = 0
+        for character in result:
+            character_bytes = len(character.encode("utf-8"))
+            if prefix_bytes + character_bytes > prefix_limit:
+                break
+            prefix.append(character)
+            prefix_bytes += character_bytes
+        result = f"{''.join(prefix).rstrip('. ')}{suffix}"
     return _safe_install_dir(result)
 
 

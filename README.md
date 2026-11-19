@@ -44,6 +44,19 @@ uv run sgs install-steamcmd
 The installer supports Valve's Linux, Windows, and macOS archives, installs under
 the user's application data directory, and does not launch SteamCMD during
 installation. The first branch lookup may let SteamCMD update itself.
+If a managed install is incomplete or needs replacing, run:
+
+```sh
+uv run sgs install-steamcmd --repair
+```
+
+It downloads and extracts the replacement before swapping it in, and attempts to
+restore the previous copy if activation fails.
+
+On Linux, SteamCMD may also require 32-bit compatibility/runtime libraries from
+your distribution. Package names vary; SGS only installs SteamCMD files and does
+not install system libraries or request administrator access. If SteamCMD cannot
+start, install the runtime dependencies recommended by your distribution.
 
 ## Usage
 
@@ -77,6 +90,9 @@ uv run sgs restore 0123456789abcdef  # replace with an ID shown by backups
 
 # Install SteamCMD for this user if SGS warns that it is missing
 uv run sgs install-steamcmd
+
+# Replace or repair the managed SteamCMD install
+uv run sgs install-steamcmd --repair
 ```
 
 Target names are case-sensitive and must match a public branch. Numeric indices
@@ -102,7 +118,9 @@ uv run sgs switch experimental --shared-folder
 Use `--separate-folders` to re-enable separate directories for that game. The
 setting is saved per App ID. Custom folder names can be set in the JSON config
 under that game's `install_dirs` mapping. SGS changes the install directory in
-the appmanifest; Steam manages the actual download and installation.
+the appmanifest; Steam manages the actual download and installation. Folder names
+must be portable single components no longer than 240 UTF-8 bytes. SGS shortens
+generated names when needed and rejects overlong custom names.
 
 Before switching, SGS saves the previous appmanifest data in `backups.json` next
 to the config file. Identical backups for the same game and manifest path are

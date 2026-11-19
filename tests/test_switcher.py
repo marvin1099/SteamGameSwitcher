@@ -125,3 +125,45 @@ def test_generated_install_directory_is_portable_and_custom_name_is_validated():
             "experimental",
             True,
         )
+
+
+def test_generated_unicode_install_directory_is_limited_by_utf8_bytes():
+    manifest = {
+        "AppState": {
+            "appid": "1234",
+            "name": "遊" * 100,
+            "installdir": "CurrentGame",
+            "UserConfig": {"BetaKey": ""},
+        }
+    }
+
+    plan = build_switch_plan(
+        manifest,
+        {"install_dirs": {}},
+        ["", "experimental"],
+        "experimental",
+        True,
+    )
+
+    assert len(plan.new_install_dir.encode("utf-8")) <= 240
+    assert len(plan.new_install_dir.rsplit("-", maxsplit=1)[-1]) == 10
+
+
+def test_custom_install_directory_over_byte_limit_is_rejected():
+    manifest = {
+        "AppState": {
+            "appid": "1234",
+            "name": "Game",
+            "installdir": "Game",
+            "UserConfig": {"BetaKey": ""},
+        }
+    }
+
+    with pytest.raises(SwitcherError, match="240 UTF-8 bytes"):
+        build_switch_plan(
+            manifest,
+            {"install_dirs": {"experimental": "a" * 241}},
+            ["", "experimental"],
+            "experimental",
+            True,
+        )

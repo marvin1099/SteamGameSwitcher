@@ -200,9 +200,19 @@ def test_cli_warns_if_steamcmd_is_missing(tmp_path, monkeypatch, capsys):
 
 def test_cli_installs_steamcmd_for_user(monkeypatch, capsys):
     executable = Path("/user/data/steam-game-switcher/steamcmd/steamcmd.sh")
-    monkeypatch.setattr(cli, "install_steamcmd", lambda: (executable, True))
+    observed = []
 
-    exit_code = cli.main(["install-steamcmd"])
+    def fake_install(*, repair):
+        observed.append(repair)
+        return executable, True
 
-    assert exit_code == 0
-    assert str(executable) in capsys.readouterr().out
+    monkeypatch.setattr(cli, "install_steamcmd", fake_install)
+
+    for option in ([], ["--repair"]):
+        exit_code = cli.main(["install-steamcmd", *option])
+        assert exit_code == 0
+
+    assert observed == [False, True]
+    output = capsys.readouterr().out
+    assert str(executable) in output
+    assert "installed or repaired" in output

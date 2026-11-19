@@ -91,8 +91,13 @@ def _build_parser() -> argparse.ArgumentParser:
     restore = commands.add_parser("restore", help="restore an appmanifest backup by ID")
     restore.add_argument("backup_id", help="ID shown by the backups command")
     restore.add_argument("--dry-run", action="store_true", help="preview without writing files")
-    commands.add_parser(
+    install = commands.add_parser(
         "install-steamcmd", help="download Valve SteamCMD into this user's data directory"
+    )
+    install.add_argument(
+        "--repair",
+        action="store_true",
+        help="replace the existing user-local SteamCMD install",
     )
     return parser
 
@@ -317,11 +322,13 @@ def _run_restore(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_install_steamcmd() -> int:
-    print("Checking or installing SteamCMD for the current user...")
-    executable, installed = install_steamcmd()
+def _run_install_steamcmd(repair: bool = False) -> int:
+    action = "checking or repairing" if repair else "checking or installing"
+    print(f"{action.capitalize()} SteamCMD for the current user...")
+    executable, installed = install_steamcmd(repair=repair)
     if installed:
-        print(f"SteamCMD installed: {executable}")
+        status = "installed or repaired" if repair else "installed"
+        print(f"SteamCMD {status}: {executable}")
         print("Its first run may download SteamCMD updates before fetching app information.")
     else:
         print(f"SteamCMD is already installed for this user: {executable}")
@@ -345,7 +352,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_backups(args)
         if args.command == "restore":
             return _run_restore(args)
-        return _run_install_steamcmd()
+        return _run_install_steamcmd(args.repair)
     except SteamCMDNotFoundError as error:
         print(f"Warning: {error}", file=sys.stderr)
         return 2

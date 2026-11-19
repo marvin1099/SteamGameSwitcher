@@ -8,6 +8,7 @@ import shutil
 import stat
 import tarfile
 import tempfile
+import uuid
 import zipfile
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -183,12 +184,21 @@ def _extract_zip_securely(archive_path: Path, destination: Path) -> None:
         raise SteamCMDInstallError(f"Could not extract SteamCMD archive: {error}") from error
 
 
+def _remove_path(path: Path) -> None:
+    if path.is_symlink() or not path.is_dir():
+        path.unlink()
+    else:
+        shutil.rmtree(path)
+
+
 def install_steamcmd(
     install_directory: Path | None = None,
     system_name: str | None = None,
     downloader: Callable[[str, Path], None] = _download_archive,
+    *,
+    repair: bool = False,
 ) -> tuple[Path, bool]:
-    """Download and install SteamCMD for the current user without elevation."""
+    """Download SteamCMD for the current user, replacing an install only with repair."""
     system = system_name or platform_system()
     try:
         url, archive_format = VALVE_DOWNLOADS[system]
@@ -199,13 +209,15 @@ def install_steamcmd(
         ) from error
 
     install_path = install_directory or managed_steamcmd_directory()
-    install_path = install_path.expanduser().resolve()
+    install_path = install_path.expanduser().absolute()
     binary_path = install_path / binary_name
-    if binary_path.is_file():
+    if binary_path.is_file() and not repair:
         return binary_path, False
-    if install_path.exists():
+    has_existing_install = install_path.exists() or install_path.is_symlink()
+    if has_existing_install and not repair:
         raise SteamCMDInstallError(
-            f"Install directory already exists but has no {binary_name}: {install_path}"
+            f"Install directory exists but has no usable {binary_name}: {install_path}. "
+            "Run 'sgs install-steamcmd --repair' to replace it."
         )
 
     try:
@@ -233,7 +245,36 @@ def install_steamcmd(
                 executable_path = extracted_path / executable_name
                 if executable_path.is_file() and system != "Windows":
                     executable_path.chmod(executable_path.stat().st_mode | 0o111)
-            os.replace(extracted_path, install_path)
+            previous_install = None
+            if has_existing_install:
+                previous_install = install_path.parent / (
+                    f".{install_path.name}.backup-{uuid.uuid4().hex}"
+                )
+                os.replace(install_path, previous_install)
+            try:
+                os.replace(extracted_path, install_path)
+            except OSError as install_error:
+                if previous_install is not None:
+                    try:
+                        os.replace(previous_install, install_path)
+                    except OSError as rollback_error:
+                        raise SteamCMDInstallError(
+                            "Could not activate the repaired SteamCMD install or restore the "
+                            "previous one. The previous install is preserved at "
+                            f"{previous_install}."
+                        ) from rollback_error
+                raise SteamCMDInstallError(
+                    f"Could not activate SteamCMD at '{install_path}'; the previous install "
+                    "was restored."
+                ) from install_error
+            if previous_install is not None:
+                try:
+                    _remove_path(previous_install)
+                except OSError as error:
+                    raise SteamCMDInstallError(
+                        f"SteamCMD was installed, but the previous copy could not be removed "
+                        f"from '{previous_install}': {error}"
+                    ) from error
     except SteamCMDInstallError:
         raise
     except OSError as error:
