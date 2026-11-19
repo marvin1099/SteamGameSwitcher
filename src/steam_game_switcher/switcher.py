@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import PurePath
 from typing import Any
 
 from .errors import SwitcherError
+
+_WINDOWS_INVALID_CHARS = re.compile(r'[\x00-\x1f<>:"/\\|?*]')
+_WINDOWS_RESERVED_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{number}" for number in range(1, 10)),
+    *(f"LPT{number}" for number in range(1, 10)),
+}
 
 
 @dataclass(frozen=True)
@@ -75,20 +86,87 @@ def _safe_install_dir(name: str) -> str:
         not name
         or name in {".", ".."}
         or PurePath(name).name != name
-        or "/" in name
-        or "\\" in name
+        or _WINDOWS_INVALID_CHARS.search(name)
+        or name[-1] in {".", " "}
+        or name.split(".", maxsplit=1)[0].upper() in _WINDOWS_RESERVED_NAMES
     ):
-        raise SwitcherError(f"Install directory must be a single folder name, got {name!r}.")
+        raise SwitcherError(
+            f"Install directory must be a portable, single folder name, got {name!r}."
+        )
     return name
 
 
-def _default_install_dir(game_name: str, branch: str) -> str:
-    if not branch:
-        return _safe_install_dir(game_name)
+def _safe_generated_component(name: str) -> str:
+    result = _WINDOWS_INVALID_CHARS.sub("-", name).rstrip(". ").strip()
+    if not result or result in {".", ".."}:
+        result = "Game"
+    if result.split(".", maxsplit=1)[0].upper() in _WINDOWS_RESERVED_NAMES:
+        result = f"Game-{result}"
+    if len(result) > 180:
+        digest = hashlib.sha256(result.encode("utf-8")).hexdigest()[:10]
+        result = f"{result[:165].rstrip('. ')}-{digest}"
+    return _safe_install_dir(result)
+
+
+def _branch_slug(branch: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", branch).strip("-").lower()
     if not slug:
         slug = "branch"
-    return _safe_install_dir(f"{game_name}-{slug}")
+    return slug
+
+
+def _default_install_dir(game_name: str, branch: str, branches: list[str]) -> str:
+    base = _safe_generated_component(game_name)
+    if not branch:
+        return base
+
+    slug = _branch_slug(branch)
+    slug_collides = any(
+        other != branch and _branch_slug(other) == slug for other in branches if other
+    )
+    if slug_collides:
+        branch_hash = hashlib.sha256(branch.encode("utf-8")).hexdigest()[:10]
+        slug = f"{slug}-{branch_hash}"
+    return _safe_generated_component(f"{base}-{slug}")
+
+
+def _install_dir_for_branch(
+    game_name: str,
+    branch: str,
+    branches: list[str],
+    install_dirs: dict[str, Any],
+) -> str:
+    configured_dir = install_dirs.get(branch)
+    uses_custom_dir = isinstance(configured_dir, str)
+    if uses_custom_dir:
+        candidate = _safe_install_dir(configured_dir)
+    else:
+        candidate = _default_install_dir(game_name, branch, branches)
+
+    other_dirs: set[str] = set()
+    for other_branch in set(branches).union(install_dirs):
+        if other_branch == branch:
+            continue
+        other_configured = install_dirs.get(other_branch)
+        if isinstance(other_configured, str):
+            other_dir = _safe_install_dir(other_configured)
+        else:
+            other_dir = _default_install_dir(game_name, other_branch, branches)
+        other_dirs.add(other_dir.casefold())
+
+    if candidate.casefold() in other_dirs:
+        if uses_custom_dir:
+            raise SwitcherError(
+                f"Custom install directory {candidate!r} for branch {branch!r} "
+                "is already used by another branch."
+            )
+        label = _branch_slug(branch) if branch else "public"
+        branch_hash = hashlib.sha256(branch.encode("utf-8")).hexdigest()
+        candidate_name = f"{_safe_generated_component(game_name)}-{label}-{branch_hash[:10]}"
+        candidate = _safe_generated_component(candidate_name)
+        if candidate.casefold() in other_dirs:
+            raise SwitcherError(f"Could not generate a unique install directory for {branch!r}.")
+    return candidate
 
 
 def build_switch_plan(
@@ -118,11 +196,11 @@ def build_switch_plan(
     app_state.setdefault("MountedConfig", {})["BetaKey"] = new_branch
 
     if separate_install_dirs:
-        configured_dir = install_dirs.get(new_branch)
-        new_install_dir = (
-            _safe_install_dir(configured_dir)
-            if isinstance(configured_dir, str)
-            else _default_install_dir(game_name, new_branch)
+        new_install_dir = _install_dir_for_branch(
+            game_name,
+            new_branch,
+            branches,
+            install_dirs,
         )
     else:
         new_install_dir = current_install_dir

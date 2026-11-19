@@ -3,21 +3,16 @@
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
 import time
-from pathlib import Path
 from typing import Any
 
 import vdf
 
-from .errors import SwitcherError
+from .errors import SteamCMDError, SteamCMDNotFoundError
+from .steamcmd_install import find_steamcmd
 
 CACHE_TTL_SECONDS = 24 * 60 * 60
-
-
-class SteamCMDError(SwitcherError):
-    """SteamCMD is missing, failed, or returned unreadable app information."""
 
 
 def _extract_app_block(output: str, app_id: int) -> str:
@@ -90,15 +85,20 @@ def public_branches(app_info: dict[str, Any]) -> list[str]:
 
 def fetch_public_branches(app_id: int, executable: str | None = None) -> list[str]:
     """Run SteamCMD and return the app's public branch names."""
-    command = executable or shutil.which("steamcmd") or shutil.which("steamcmd.exe")
+    command = find_steamcmd(executable)
     if command is None:
-        raise SteamCMDError(
-            "SteamCMD was not found. Install it and add it to PATH, or pass --steamcmd."
+        if executable:
+            message = f"SteamCMD executable '{executable}' was not found."
+        else:
+            message = "SteamCMD was not found on PATH or in the SGS user install directory."
+        raise SteamCMDNotFoundError(
+            f"{message} Run 'sgs install-steamcmd' to install a user-local copy, "
+            "or pass --steamcmd."
         )
 
     try:
         result = subprocess.run(
-            [str(Path(command).expanduser()), "+app_info_print", str(app_id), "+quit"],
+            [command, "+app_info_print", str(app_id), "+quit"],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -107,7 +107,10 @@ def fetch_public_branches(app_id: int, executable: str | None = None) -> list[st
             check=False,
         )
     except FileNotFoundError as error:
-        raise SteamCMDError(f"SteamCMD executable was not found: {command}") from error
+        raise SteamCMDNotFoundError(
+            f"SteamCMD executable was not found: {command}. "
+            "Run 'sgs install-steamcmd' to install a user-local copy."
+        ) from error
     except subprocess.TimeoutExpired as error:
         raise SteamCMDError("SteamCMD timed out while retrieving app information.") from error
     except OSError as error:
@@ -142,6 +145,11 @@ def get_available_branches(
 
     cache_age = timestamp - fetched_at
     if not force_refresh and cached_branches and 0 <= cache_age < CACHE_TTL_SECONDS:
+        if find_steamcmd(executable) is None:
+            return cached_branches, (
+                "SteamCMD is missing; using cached branch data. "
+                "Run 'sgs install-steamcmd' to install it for this user."
+            )
         return cached_branches, None
 
     try:

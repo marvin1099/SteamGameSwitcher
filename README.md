@@ -10,11 +10,12 @@ Steam branch by safely updating its local `appmanifest_<app-id>.acf`.
 
 - Python 3.11 or newer
 - [uv](https://docs.astral.sh/uv/)
-- SteamCMD available on `PATH` (or pass its location with `--steamcmd`)
 - The game installed in a Steam library on this computer
 
 SteamCMD is used to retrieve public branch names; it does not download or install
 game files. Steam performs those updates after it notices the changed manifest.
+SGS uses SteamCMD from `PATH` or its per-user install directory. If it is missing,
+branch commands show a warning and can use cached branch data when available.
 
 ## Install for development
 
@@ -32,6 +33,17 @@ uv run sgs --help
 
 To install a standalone command in the active environment, use `uv tool install .`
 from the project directory.
+
+To download SteamCMD directly from Valve and install it for the current user (no
+administrator access required), run:
+
+```sh
+uv run sgs install-steamcmd
+```
+
+The installer supports Valve's Linux, Windows, and macOS archives, installs under
+the user's application data directory, and does not launch SteamCMD during
+installation. The first branch lookup may let SteamCMD update itself.
 
 ## Usage
 
@@ -62,6 +74,9 @@ uv run sgs switch experimental --dry-run
 # Browse saved manifest backups and restore one by ID
 uv run sgs backups
 uv run sgs restore 0123456789abcdef  # replace with an ID shown by backups
+
+# Install SteamCMD for this user if SGS warns that it is missing
+uv run sgs install-steamcmd
 ```
 
 Target names are case-sensitive and must match a public branch. Numeric indices
@@ -109,6 +124,10 @@ path than the one recorded in the backup, placing the option before the command:
 ```sh
 uv run sgs --manifest "/path/to/appmanifest_526870.acf" restore 0123456789abcdef
 ```
+
+Saved branch profiles from an earlier SGS config are moved into `backups.json`
+when the next non-dry-run switch occurs; their config entries are removed only
+after the backup file is saved. Existing per-game directory choices are preserved.
 
 ## Development
 

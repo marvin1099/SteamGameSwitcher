@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -15,10 +16,11 @@ from .backups import (
     load_backup_store,
     save_backup_store,
 )
-from .errors import SwitcherError
+from .errors import SteamCMDNotFoundError, SwitcherError
 from .paths import find_manifest
 from .state import default_config_path, load_state, save_state
 from .steamcmd import get_available_branches
+from .steamcmd_install import install_steamcmd
 from .switcher import active_branch, branch_label, build_switch_plan
 
 DEFAULT_APP_ID = 526870
@@ -89,6 +91,9 @@ def _build_parser() -> argparse.ArgumentParser:
     restore = commands.add_parser("restore", help="restore an appmanifest backup by ID")
     restore.add_argument("backup_id", help="ID shown by the backups command")
     restore.add_argument("--dry-run", action="store_true", help="preview without writing files")
+    commands.add_parser(
+        "install-steamcmd", help="download Valve SteamCMD into this user's data directory"
+    )
     return parser
 
 
@@ -166,22 +171,32 @@ def _run_switch(args: argparse.Namespace) -> int:
         separate_install_dirs=separate_dirs,
     )
 
+    if args.dry_run:
+        if plan.manifest == manifest:
+            print(f"Already on {branch_label(plan.new_branch)}; no manifest changes needed.")
+        else:
+            print(
+                f"Switch {branch_label(plan.old_branch)} -> {branch_label(plan.new_branch)} "
+                f"(install directory: {plan.old_install_dir} -> {plan.new_install_dir})"
+            )
+            print("Dry run: no files were changed.")
+        return 0
+
+    backup_path = backup_store_path(args.config)
+    backup_store = load_backup_store(backup_path)
+    backups_changed = _migrate_branch_profiles(game_state, backup_store, args.app_id, manifest_path)
+
     if plan.manifest == manifest:
         print(f"Already on {branch_label(plan.new_branch)}; no manifest changes needed.")
-        if not args.dry_run:
-            save_state(args.config, root_state)
+        if backups_changed:
+            save_backup_store(backup_path, backup_store)
+        save_state(args.config, root_state)
         return 0
 
     print(
         f"Switch {branch_label(plan.old_branch)} -> {branch_label(plan.new_branch)} "
         f"(install directory: {plan.old_install_dir} -> {plan.new_install_dir})"
     )
-    if args.dry_run:
-        print("Dry run: no files were changed.")
-        return 0
-
-    backup_path = backup_store_path(args.config)
-    backup_store = load_backup_store(backup_path)
     backup_id, backup_created = add_backup(
         backup_store,
         args.app_id,
@@ -189,7 +204,8 @@ def _run_switch(args: argparse.Namespace) -> int:
         manifest,
         plan.old_branch,
     )
-    if backup_created:
+    backups_changed |= backup_created
+    if backups_changed:
         save_backup_store(backup_path, backup_store)
     save_acf_atomic(manifest_path, plan.manifest)
     save_state(args.config, root_state)
@@ -220,6 +236,41 @@ def _run_backups(args: argparse.Namespace) -> int:
             f"{entry.get('created_at', 'unknown time')}  {entry.get('manifest_path', '')}"
         )
     return 0
+
+
+def _migrate_branch_profiles(
+    game_state: dict,
+    backup_store: dict,
+    app_id: int,
+    manifest_path: Path,
+) -> bool:
+    """Move v1 per-branch manifest snapshots into the deduplicated backup store."""
+    profiles = game_state.get("profiles")
+    if profiles is None:
+        return False
+    if not isinstance(profiles, dict):
+        raise SwitcherError(f"Saved branch profiles for App ID {app_id} are malformed.")
+
+    backups_changed = False
+    for branch, profile in profiles.items():
+        if not isinstance(profile, dict) or not isinstance(profile.get("AppState"), dict):
+            raise SwitcherError(
+                f"Saved manifest profile {branch!r} for App ID {app_id} is malformed."
+            )
+        data = copy.deepcopy(profile)
+        app_state = data["AppState"]
+        profile_app_id = app_state.get("appid")
+        if profile_app_id is not None and str(profile_app_id) != str(app_id):
+            raise SwitcherError(
+                f"Saved manifest profile {branch!r} belongs to App ID {profile_app_id}, "
+                f"not {app_id}."
+            )
+        app_state.setdefault("appid", str(app_id))
+        _, created = add_backup(backup_store, app_id, manifest_path, data, str(branch))
+        backups_changed |= created
+
+    game_state.pop("profiles", None)
+    return backups_changed
 
 
 def _run_restore(args: argparse.Namespace) -> int:
@@ -266,6 +317,17 @@ def _run_restore(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_install_steamcmd() -> int:
+    print("Checking or installing SteamCMD for the current user...")
+    executable, installed = install_steamcmd()
+    if installed:
+        print(f"SteamCMD installed: {executable}")
+        print("Its first run may download SteamCMD updates before fetching app information.")
+    else:
+        print(f"SteamCMD is already installed for this user: {executable}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command-line application and return its process status."""
     parser = _build_parser()
@@ -281,7 +343,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_switch(args)
         if args.command == "backups":
             return _run_backups(args)
-        return _run_restore(args)
+        if args.command == "restore":
+            return _run_restore(args)
+        return _run_install_steamcmd()
+    except SteamCMDNotFoundError as error:
+        print(f"Warning: {error}", file=sys.stderr)
+        return 2
     except SwitcherError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2

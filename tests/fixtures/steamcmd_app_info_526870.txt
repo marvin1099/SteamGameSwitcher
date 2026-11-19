@@ -1,0 +1,29 @@
+Steam Console Client (c) Valve Corporation - version 1794537082
+AppID : 526870, change number : 41000517/0, last change : Sat Nov  7 15:08:54 2026
+"526870"
+{
+	"common"
+	{
+		"name"		"Satisfactory"
+	}
+	"depots"
+	{
+		"branches"
+		{
+			"public"
+			{
+				"buildid"		"26281294"
+				"timeupdated"		"1793800877"
+				"timebuildupdated"		"1793219710"
+			}
+			"experimental"
+			{
+				"buildid"		"26281294"
+				"timeupdated"		"1793800816"
+				"timebuildupdated"		"1793219710"
+			}
+		}
+		"privatebranches"		"1"
+	}
+}
+Unloading Steam API...OK

@@ -35,15 +35,7 @@ def load_state(path: Path, app_id: int) -> tuple[dict[str, Any], dict[str, Any]]
 
     schema_version = root.get("schema_version", 1)
     if schema_version == 1:
-        legacy_games = root.get("games", {})
-        if isinstance(legacy_games, dict):
-            for legacy_game in legacy_games.values():
-                if (
-                    isinstance(legacy_game, dict)
-                    and legacy_game.get("separate_install_dirs") is False
-                ):
-                    # v1's default was shared folders; v2 defaults to isolation per game.
-                    legacy_game["separate_install_dirs"] = True
+        # Keep saved branch manifests until the CLI can transfer them to backups.json.
         root["schema_version"] = SCHEMA_VERSION
     elif schema_version != SCHEMA_VERSION:
         raise SwitcherError(
@@ -69,8 +61,6 @@ def load_state(path: Path, app_id: int) -> tuple[dict[str, Any], dict[str, Any]]
     game.setdefault("branch_cache", {"fetched_at": 0, "branches": []})
     game.setdefault("install_dirs", {})
     game.setdefault("separate_install_dirs", True)
-    # Branch snapshots are held in the recoverable backups.json store, not config.json.
-    game.pop("profiles", None)
     for key in ("branch_cache", "install_dirs"):
         if not isinstance(game[key], dict):
             raise SwitcherError(f"Config entry for App ID {app_id} has an invalid '{key}' section.")

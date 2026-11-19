@@ -48,6 +48,11 @@ def _canonical_json(data: dict[str, Any]) -> str:
         raise SwitcherError(f"Manifest data cannot be stored as JSON: {error}") from error
 
 
+def _backup_id(app_id: int, manifest_path: str, content_hash: str) -> str:
+    identity = f"{app_id}\0{manifest_path}\0{content_hash}"
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+
+
 def add_backup(
     store: dict[str, Any],
     app_id: int,
@@ -59,8 +64,7 @@ def add_backup(
     resolved_path = str(manifest_path.expanduser().resolve())
     canonical_data = _canonical_json(data)
     content_hash = hashlib.sha256(canonical_data.encode("utf-8")).hexdigest()
-    identity = f"{app_id}\0{resolved_path}\0{content_hash}"
-    backup_id = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+    backup_id = _backup_id(app_id, resolved_path, content_hash)
 
     for entry in store["entries"]:
         if entry.get("id") == backup_id:
@@ -113,9 +117,20 @@ def find_backup(store: dict[str, Any], backup_id: str) -> dict[str, Any]:
         path = entry.get("manifest_path")
         if not isinstance(data, dict) or not isinstance(app_id, int) or not isinstance(path, str):
             raise SwitcherError(f"Backup '{backup_id}' is malformed.")
+        stored_path = Path(path)
+        if not stored_path.is_absolute():
+            raise SwitcherError(f"Backup '{backup_id}' has a non-absolute manifest path.")
+        try:
+            canonical_path = str(stored_path.resolve())
+        except (OSError, RuntimeError, ValueError) as error:
+            raise SwitcherError(f"Backup '{backup_id}' has an invalid manifest path.") from error
+        if canonical_path != path:
+            raise SwitcherError(f"Backup '{backup_id}' manifest path was altered.")
         expected_hash = hashlib.sha256(_canonical_json(data).encode("utf-8")).hexdigest()
         if entry.get("sha256") != expected_hash:
             raise SwitcherError(f"Backup '{backup_id}' failed its integrity check.")
+        if _backup_id(app_id, path, expected_hash) != backup_id:
+            raise SwitcherError(f"Backup '{backup_id}' metadata failed its integrity check.")
         app_state = data.get("AppState")
         if not isinstance(app_state, dict) or str(app_state.get("appid", app_id)) != str(app_id):
             raise SwitcherError(f"Backup '{backup_id}' does not contain the expected App ID.")

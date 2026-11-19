@@ -1,3 +1,5 @@
+import pytest
+
 from steam_game_switcher.backups import (
     add_backup,
     backup_store_path,
@@ -5,6 +7,7 @@ from steam_game_switcher.backups import (
     load_backup_store,
     save_backup_store,
 )
+from steam_game_switcher.errors import SwitcherError
 
 
 def test_backup_store_deduplicates_identical_manifest_data(tmp_path):
@@ -32,3 +35,13 @@ def test_backup_store_deduplicates_identical_manifest_data(tmp_path):
     assert second_created is False
     assert len(reloaded["entries"]) == 1
     assert find_backup(reloaded, first_id)["data"] == manifest
+
+
+def test_backup_integrity_check_detects_modified_destination(tmp_path):
+    store = load_backup_store(tmp_path / "backups.json")
+    manifest = {"AppState": {"appid": "1234", "installdir": "Game"}}
+    backup_id, _ = add_backup(store, 1234, tmp_path / "appmanifest_1234.acf", manifest, "")
+    store["entries"][0]["manifest_path"] = str(tmp_path / "other.acf")
+
+    with pytest.raises(SwitcherError, match="metadata failed its integrity check"):
+        find_backup(store, backup_id)

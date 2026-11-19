@@ -1,7 +1,15 @@
+import subprocess
+from pathlib import Path
+
 import pytest
 
 from steam_game_switcher.errors import SwitcherError
-from steam_game_switcher.steamcmd import get_available_branches, parse_app_info, public_branches
+from steam_game_switcher.steamcmd import (
+    fetch_public_branches,
+    get_available_branches,
+    parse_app_info,
+    public_branches,
+)
 
 APP_INFO_OUTPUT = r"""
 Connecting anonymously to Steam Public...OK
@@ -49,6 +57,27 @@ def test_app_info_parser_reports_missing_app_id():
         parse_app_info('"1"\n{\n}\n', 526870)
 
 
+def test_actual_steamcmd_transcript_and_subprocess_call(monkeypatch):
+    fixture = Path(__file__).parent / "fixtures" / "steamcmd_app_info_526870.txt"
+    output = fixture.read_text(encoding="utf-8")
+    observed = {}
+
+    def fake_run(command, **kwargs):
+        observed["command"] = command
+        observed["kwargs"] = kwargs
+        return subprocess.CompletedProcess(command, 0, stdout=output, stderr="SteamCMD log")
+
+    monkeypatch.setattr("steam_game_switcher.steamcmd.find_steamcmd", lambda _exe: "/opt/steamcmd")
+    monkeypatch.setattr("steam_game_switcher.steamcmd.subprocess.run", fake_run)
+
+    branches = fetch_public_branches(526870, "steamcmd")
+
+    assert branches == ["", "experimental"]
+    assert observed["command"] == ["/opt/steamcmd", "+app_info_print", "526870", "+quit"]
+    assert observed["kwargs"]["capture_output"] is True
+    assert observed["kwargs"]["text"] is True
+
+
 def test_branch_cache_is_used_until_expired(monkeypatch):
     game_state = {"branch_cache": {"fetched_at": 1_000, "branches": ["", "experimental"]}}
 
@@ -59,4 +88,5 @@ def test_branch_cache_is_used_until_expired(monkeypatch):
     branches, warning = get_available_branches(526870, game_state, now=1_001)
 
     assert branches == ["", "experimental"]
-    assert warning is None
+    assert warning is not None
+    assert "sgs install-steamcmd" in warning

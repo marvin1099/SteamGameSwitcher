@@ -15,7 +15,7 @@ def test_separate_install_directories_default_on_per_game(tmp_path):
     assert second_game["separate_install_dirs"] is True
 
 
-def test_v1_default_is_migrated_to_separate_directories(tmp_path):
+def test_v1_shared_directory_preference_is_preserved(tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text(
         '{"schema_version": 1, "games": {"526870": '
@@ -26,5 +26,5 @@ def test_v1_default_is_migrated_to_separate_directories(tmp_path):
     root, game = load_state(config_path, 526870)
 
     assert root["schema_version"] == 2
-    assert game["separate_install_dirs"] is True
-    assert "profiles" not in game
+    assert game["separate_install_dirs"] is False
+    assert "profiles" in game

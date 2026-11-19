@@ -78,3 +78,50 @@ def test_switch_plan_rejects_unsafe_custom_install_directory():
 
     with pytest.raises(SwitcherError, match="single folder name"):
         build_switch_plan(manifest, game_state, ["", "experimental"], "experimental", True)
+
+
+def test_slug_collisions_produce_distinct_install_directories():
+    manifest = {
+        "AppState": {
+            "appid": "1234",
+            "name": "Example Game",
+            "installdir": "Example Game",
+            "UserConfig": {"BetaKey": ""},
+        }
+    }
+    branches = ["", "nightly+linux", "nightly-linux"]
+    first_state = {"install_dirs": {}}
+    second_state = {"install_dirs": {}}
+
+    first = build_switch_plan(manifest, first_state, branches, "nightly+linux", True)
+    second = build_switch_plan(manifest, second_state, branches, "nightly-linux", True)
+
+    assert first.new_install_dir != second.new_install_dir
+
+
+def test_generated_install_directory_is_portable_and_custom_name_is_validated():
+    manifest = {
+        "AppState": {
+            "appid": "1234",
+            "name": "Title: Deluxe",
+            "installdir": "Title Deluxe",
+            "UserConfig": {"BetaKey": ""},
+        }
+    }
+    plan = build_switch_plan(
+        manifest,
+        {"install_dirs": {}},
+        ["", "experimental"],
+        "experimental",
+        True,
+    )
+    assert ":" not in plan.new_install_dir
+
+    with pytest.raises(SwitcherError, match="portable"):
+        build_switch_plan(
+            manifest,
+            {"install_dirs": {"experimental": "Title: Deluxe"}},
+            ["", "experimental"],
+            "experimental",
+            True,
+        )
