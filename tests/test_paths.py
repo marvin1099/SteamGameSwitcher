@@ -16,7 +16,7 @@ def test_install_dir_component_limit_queries_common_filesystem(tmp_path, monkeyp
         observed["name"] = name
         return 192
 
-    monkeypatch.setattr(os, "pathconf", fake_pathconf)
+    monkeypatch.setattr(os, "pathconf", fake_pathconf, raising=False)
 
     assert install_dir_component_limit(manifest_path) == 192
     assert observed == {"path": common, "name": "PC_NAME_MAX"}
@@ -28,6 +28,6 @@ def test_install_dir_component_limit_falls_back_when_pathconf_fails(tmp_path, mo
     def unsupported_pathconf(_path, _name):
         raise OSError("unsupported filesystem query")
 
-    monkeypatch.setattr(os, "pathconf", unsupported_pathconf)
+    monkeypatch.setattr(os, "pathconf", unsupported_pathconf, raising=False)
 
     assert install_dir_component_limit(manifest_path) == DEFAULT_NAME_MAX

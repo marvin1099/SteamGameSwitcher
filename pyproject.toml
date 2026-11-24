@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "steam-game-switcher"
-version = "1.0.0"
+version = "0.1.0"
 description = "Switch Steam game branches and generate desktop launchers"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,6 +27,9 @@ dependencies = [
     "platformdirs>=4.3,<5",
     "vdf>=3.4,<4",
 ]
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.8,<7"]
 
 [project.scripts]
 sgs = "steam_game_switcher.cli:main"

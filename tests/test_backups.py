@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from steam_game_switcher.backups import (
@@ -45,3 +47,22 @@ def test_backup_integrity_check_detects_modified_destination(tmp_path):
 
     with pytest.raises(SwitcherError, match="metadata failed its integrity check"):
         find_backup(store, backup_id)
+
+
+def test_backup_store_rejects_invalid_created_at_timestamp(tmp_path):
+    backup_path = tmp_path / "backups.json"
+    backup_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "entries": [
+                    {"created_at": "2025-01-01T00:00:00Z"},
+                    {"created_at": None},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SwitcherError, match="created_at"):
+        load_backup_store(backup_path)

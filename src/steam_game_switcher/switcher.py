@@ -47,6 +47,15 @@ def active_branch(manifest: dict[str, Any]) -> str:
     return str(branch or "")
 
 
+def branch_changed_outside_sgs(
+    current_branch: str,
+    game_state: dict[str, Any],
+) -> bool:
+    """Detect a branch changed in Steam since SGS last managed this game's manifest."""
+    last_managed_branch = game_state.get("last_managed_branch")
+    return isinstance(last_managed_branch, str) and current_branch != last_managed_branch
+
+
 def resolve_branch(branches: list[str], current: str, target: str) -> str:
     """Resolve a branch name, one-based index, next/previous, or legacy token."""
     if not branches:
@@ -55,20 +64,27 @@ def resolve_branch(branches: list[str], current: str, target: str) -> str:
     normalized_branches = ["" if branch.casefold() == "public" else branch for branch in branches]
     if len(set(normalized_branches)) != len(normalized_branches):
         raise SwitcherError("Steam returned duplicate branch names.")
-    current_index = normalized_branches.index(current) if current in normalized_branches else 0
+    current_index = normalized_branches.index(current) if current in normalized_branches else None
     requested = target.strip()
     lowered = requested.casefold()
 
     if lowered in {"next", "0"}:
-        return normalized_branches[(current_index + 1) % len(normalized_branches)]
+        next_index = 0 if current_index is None else (current_index + 1) % len(normalized_branches)
+        return normalized_branches[next_index]
     if lowered in {"previous", "prev", "-"}:
-        return normalized_branches[(current_index - 1) % len(normalized_branches)]
+        previous_index = (
+            -1 if current_index is None else (current_index - 1) % len(normalized_branches)
+        )
+        return normalized_branches[previous_index]
     if lowered == "public":
         requested = ""
     elif re.fullmatch(r"-?\d+", requested):
         index = int(requested)
         if index == 0:
-            return normalized_branches[(current_index + 1) % len(normalized_branches)]
+            next_index = (
+                0 if current_index is None else (current_index + 1) % len(normalized_branches)
+            )
+            return normalized_branches[next_index]
         if index > 0:
             index -= 1
         if not -len(normalized_branches) <= index < len(normalized_branches):
@@ -235,8 +251,17 @@ def build_switch_plan(
     new_branch = resolve_branch(branches, old_branch, target)
 
     install_dirs = game_state.setdefault("install_dirs", {})
-    if separate_install_dirs and old_branch not in install_dirs:
-        install_dirs[old_branch] = _safe_install_dir(current_install_dir, max_component_length)
+    last_managed_branch = game_state.get("last_managed_branch")
+    last_managed_install_dir = game_state.get("last_managed_install_dir")
+    externally_changed = branch_changed_outside_sgs(old_branch, game_state)
+    if separate_install_dirs:
+        if isinstance(last_managed_branch, str) and isinstance(last_managed_install_dir, str):
+            install_dirs.setdefault(
+                last_managed_branch,
+                _safe_install_dir(last_managed_install_dir, max_component_length),
+            )
+        if old_branch not in install_dirs and not externally_changed:
+            install_dirs[old_branch] = _safe_install_dir(current_install_dir, max_component_length)
     new_manifest = copy.deepcopy(manifest)
 
     app_state = new_manifest.setdefault("AppState", {})
@@ -253,6 +278,8 @@ def build_switch_plan(
         )
     else:
         new_install_dir = current_install_dir
+    if separate_install_dirs:
+        install_dirs[new_branch] = new_install_dir
     app_state["installdir"] = new_install_dir
 
     return SwitchPlan(

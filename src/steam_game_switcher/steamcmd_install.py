@@ -217,7 +217,7 @@ def install_steamcmd(
     if has_existing_install and not repair:
         raise SteamCMDInstallError(
             f"Install directory exists but has no usable {binary_name}: {install_path}. "
-            "Run 'sgs install-steamcmd --repair' to replace it."
+            "Run 'sgs steamcmd repair' to replace it."
         )
 
     try:

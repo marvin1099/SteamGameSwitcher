@@ -35,7 +35,8 @@ def test_install_steamcmd_downloads_and_installs_for_current_user(tmp_path):
 
     assert executable == install_directory / "steamcmd.sh"
     assert installed is True
-    assert os.access(executable, os.X_OK)
+    if os.name != "nt":
+        assert os.access(executable, os.X_OK)
     assert downloaded_urls == [VALVE_DOWNLOADS["Linux"][0]]
 
     existing_executable, installed_again = install_steamcmd(
@@ -81,7 +82,7 @@ def test_install_steamcmd_repair_replaces_partial_install(tmp_path):
     def fake_download(_url, destination):
         destination.write_bytes(archive_data)
 
-    with pytest.raises(SteamCMDInstallError, match="--repair"):
+    with pytest.raises(SteamCMDInstallError, match="steamcmd repair"):
         install_steamcmd(install_directory, "Linux", fake_download)
     assert (install_directory / "incomplete.txt").is_file()
 

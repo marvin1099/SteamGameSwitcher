@@ -13,6 +13,13 @@ from platformdirs import user_config_path
 from .errors import SwitcherError
 
 SCHEMA_VERSION = 2
+DEFAULT_APP_ID = 526870
+DEFAULT_GAME_SETTINGS = {
+    "separate_install_dirs": True,
+    "restart_steam_on_switch": False,
+    "launch_game_after_switch": False,
+    "launch_game_when_unchanged": False,
+}
 
 
 def default_config_path() -> Path:
@@ -20,8 +27,8 @@ def default_config_path() -> Path:
     return Path(user_config_path("steam-game-switcher", appauthor=False)) / "config.json"
 
 
-def load_state(path: Path, app_id: int) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Load global state and the selected game's state, creating defaults."""
+def load_root_state(path: Path) -> dict[str, Any]:
+    """Load and validate shared settings without creating a per-game entry."""
     path = path.expanduser()
     if path.exists():
         try:
@@ -47,12 +54,32 @@ def load_state(path: Path, app_id: int) -> tuple[dict[str, Any], dict[str, Any]]
     if not isinstance(games, dict):
         raise SwitcherError(f"Config '{path}' has an invalid 'games' section.")
 
+    default_app_id = root.setdefault("default_app_id", DEFAULT_APP_ID)
+    if type(default_app_id) is not int or default_app_id < 1:
+        raise SwitcherError(f"Config '{path}' has an invalid 'default_app_id' setting.")
+
+    defaults = root.setdefault("defaults", dict(DEFAULT_GAME_SETTINGS))
+    if not isinstance(defaults, dict):
+        raise SwitcherError(f"Config '{path}' has an invalid 'defaults' section.")
+    for key, default in DEFAULT_GAME_SETTINGS.items():
+        defaults.setdefault(key, default)
+        if not isinstance(defaults[key], bool):
+            raise SwitcherError(f"Config '{path}' has an invalid default for '{key}'.")
+    return root
+
+
+def load_state(path: Path, app_id: int) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Load global state and the selected game's state, creating defaults."""
+    root = load_root_state(path)
+    games = root["games"]
+    is_new_game = str(app_id) not in games
+
     game = games.setdefault(
         str(app_id),
         {
             "branch_cache": {"fetched_at": 0, "branches": []},
             "install_dirs": {},
-            "separate_install_dirs": True,
+            **{key: root["defaults"][key] for key in DEFAULT_GAME_SETTINGS},
         },
     )
     if not isinstance(game, dict):
@@ -60,10 +87,19 @@ def load_state(path: Path, app_id: int) -> tuple[dict[str, Any], dict[str, Any]]
 
     game.setdefault("branch_cache", {"fetched_at": 0, "branches": []})
     game.setdefault("install_dirs", {})
-    game.setdefault("separate_install_dirs", True)
+    game.setdefault("last_managed_branch", None)
+    game.setdefault("last_managed_install_dir", None)
+    for key, default in DEFAULT_GAME_SETTINGS.items():
+        game.setdefault(key, root["defaults"][key] if is_new_game else default)
     for key in ("branch_cache", "install_dirs"):
         if not isinstance(game[key], dict):
             raise SwitcherError(f"Config entry for App ID {app_id} has an invalid '{key}' section.")
+    for key in DEFAULT_GAME_SETTINGS:
+        if not isinstance(game[key], bool):
+            raise SwitcherError(f"Config entry for App ID {app_id} has an invalid '{key}' setting.")
+    for key in ("last_managed_branch", "last_managed_install_dir"):
+        if game[key] is not None and not isinstance(game[key], str):
+            raise SwitcherError(f"Config entry for App ID {app_id} has an invalid '{key}' value.")
     return root, game
 
 

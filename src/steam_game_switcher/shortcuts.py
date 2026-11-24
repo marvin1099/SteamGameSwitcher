@@ -11,10 +11,30 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .desktop_integration import application_icon_path, applications_directory
 from .errors import SwitcherError
 from .switcher import branch_label, resolve_branch
 
 _EXTENSIONS = {"Linux": ".desktop", "Windows": ".vbs", "Darwin": ".command"}
+
+
+def default_shortcut_directory(platform_name: str | None = None) -> Path:
+    """Return the user's platform-specific application launcher directory."""
+    system = platform_name or platform.system()
+    if system == "Linux":
+        return applications_directory()
+
+    if system == "Windows":
+        roaming_data = os.environ.get("APPDATA")
+        data_home = (
+            Path(roaming_data).expanduser() if roaming_data else Path.home() / "AppData" / "Roaming"
+        )
+        return data_home / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+
+    if system == "Darwin":
+        return Path.home() / "Applications"
+
+    return Path.home() / "Applications"
 
 
 def _desktop_value(value: str) -> str:
@@ -47,18 +67,26 @@ def _command_arguments(
     config_path: Path,
     branch: str,
     steamcmd: str | None,
+    sgs_executable: str | None,
 ) -> list[str]:
-    arguments = [
-        str(Path(executable).expanduser().absolute()),
-        "-m",
-        "steam_game_switcher",
-        "--app-id",
-        str(app_id),
-        "--manifest",
-        str(manifest_path.expanduser().absolute()),
-        "--config",
-        str(config_path.expanduser().absolute()),
-    ]
+    if sgs_executable:
+        arguments = [str(Path(sgs_executable).expanduser().absolute())]
+    else:
+        arguments = [
+            str(Path(executable).expanduser().absolute()),
+            "-m",
+            "steam_game_switcher",
+        ]
+    arguments.extend(
+        (
+            "--app-id",
+            str(app_id),
+            "--manifest",
+            str(manifest_path.expanduser().absolute()),
+            "--config",
+            str(config_path.expanduser().absolute()),
+        )
+    )
     if steamcmd:
         arguments.extend(("--steamcmd", steamcmd))
     arguments.extend(("switch", "--", branch or "public"))
@@ -88,7 +116,8 @@ def _render_shortcut(
                 f"Name={_desktop_value(name)}",
                 f"Comment={_desktop_value(name)}",
                 f"Exec={command}",
-                "Terminal=true",
+                f"Icon={application_icon_path().resolve()}",
+                "Terminal=false",
                 "Categories=Game;",
                 "",
             )
@@ -141,6 +170,7 @@ def generate_shortcuts(
     steamcmd: str | None = None,
     platform_name: str | None = None,
     force: bool = False,
+    sgs_executable: str | None = None,
 ) -> list[Path]:
     """Create one native launcher per selected branch, returning their paths."""
     system = platform_name or platform.system()
@@ -189,6 +219,7 @@ def generate_shortcuts(
             config_path,
             branch,
             steamcmd,
+            sgs_executable,
         )
         _, contents = _render_shortcut(system, name, arguments)
         rendered_shortcuts.append((target_path, contents))

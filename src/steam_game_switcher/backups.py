@@ -21,6 +21,20 @@ def backup_store_path(config_path: Path) -> Path:
     return config_path.expanduser().resolve().parent / "backups.json"
 
 
+def backup_timestamp(entry: dict[str, Any]) -> datetime:
+    """Parse a backup timestamp and normalize it to UTC for chronological ordering."""
+    value = entry.get("created_at")
+    if not isinstance(value, str):
+        raise SwitcherError("Backup entry has an invalid 'created_at' timestamp.")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise ValueError("timestamp must include a timezone")
+        return parsed.astimezone(UTC)
+    except (OverflowError, ValueError) as error:
+        raise SwitcherError("Backup entry has an invalid 'created_at' timestamp.") from error
+
+
 def load_backup_store(path: Path) -> dict[str, Any]:
     """Load the JSON backup index, creating an empty in-memory store if absent."""
     path = path.expanduser()
@@ -38,6 +52,13 @@ def load_backup_store(path: Path) -> dict[str, Any]:
         isinstance(entry, dict) for entry in store["entries"]
     ):
         raise SwitcherError(f"Backup file '{path}' has an invalid 'entries' list.")
+    for index, entry in enumerate(store["entries"], start=1):
+        try:
+            backup_timestamp(entry)
+        except SwitcherError as error:
+            raise SwitcherError(
+                f"Backup file '{path}' has an invalid 'created_at' timestamp in entry {index}."
+            ) from error
     return store
 
 

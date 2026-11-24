@@ -92,7 +92,7 @@ def fetch_public_branches(app_id: int, executable: str | None = None) -> list[st
         else:
             message = "SteamCMD was not found on PATH or in the SGS user install directory."
         raise SteamCMDNotFoundError(
-            f"{message} Run 'sgs install-steamcmd' to install a user-local copy, "
+            f"{message} Run 'sgs steamcmd install' to install a user-local copy, "
             "or pass --steamcmd."
         )
 
@@ -109,7 +109,7 @@ def fetch_public_branches(app_id: int, executable: str | None = None) -> list[st
     except FileNotFoundError as error:
         raise SteamCMDNotFoundError(
             f"SteamCMD executable was not found: {command}. "
-            "Run 'sgs install-steamcmd' to install a user-local copy."
+            "Run 'sgs steamcmd install' to install a user-local copy."
         ) from error
     except subprocess.TimeoutExpired as error:
         raise SteamCMDError("SteamCMD timed out while retrieving app information.") from error
@@ -130,6 +130,7 @@ def get_available_branches(
     executable: str | None = None,
     force_refresh: bool = False,
     now: int | None = None,
+    use_cache: bool = False,
 ) -> tuple[list[str], str | None]:
     """Use the daily cache, refreshing it through SteamCMD when needed."""
     timestamp = int(time.time()) if now is None else now
@@ -144,18 +145,24 @@ def get_available_branches(
         fetched_at = 0
 
     cache_age = timestamp - fetched_at
-    if not force_refresh and cached_branches and 0 <= cache_age < CACHE_TTL_SECONDS:
+    cache_is_fresh = 0 <= cache_age < CACHE_TTL_SECONDS
+    if use_cache and not force_refresh and cached_branches:
+        if cache_is_fresh:
+            return cached_branches, None
+        return cached_branches, "Using cached branch data as requested; it may be stale."
+
+    if not force_refresh and cached_branches and cache_is_fresh:
         if find_steamcmd(executable) is None:
             return cached_branches, (
                 "SteamCMD is missing; using cached branch data. "
-                "Run 'sgs install-steamcmd' to install it for this user."
+                "Run 'sgs steamcmd install' to install it for this user."
             )
         return cached_branches, None
 
     try:
         branches = fetch_public_branches(app_id, executable)
     except SteamCMDError as error:
-        if cached_branches:
+        if cached_branches and not force_refresh:
             return cached_branches, f"SteamCMD refresh failed; using cached branches. {error}"
         raise
 

@@ -1,4 +1,5 @@
 import copy
+import os
 
 import pytest
 
@@ -25,6 +26,11 @@ def test_resolve_branch(target, expected):
 def test_resolve_branch_rejects_unknown_branch():
     with pytest.raises(SwitcherError, match="Unknown branch"):
         resolve_branch(["", "experimental"], "", "private")
+
+
+@pytest.mark.parametrize(("target", "expected"), [("next", ""), ("0", ""), ("previous", "preview")])
+def test_next_and_previous_from_a_removed_branch_choose_list_edges(target, expected):
+    assert resolve_branch(["", "experimental", "preview"], "removed-branch", target) == expected
 
 
 def test_switch_plan_preserves_profile_and_uses_shared_folder():
@@ -146,7 +152,11 @@ def test_generated_unicode_install_directory_respects_component_limit():
         max_component_length=255,
     )
 
-    assert len(plan.new_install_dir.encode("utf-8")) <= 255
+    if os.name == "nt":
+        component_length = len(plan.new_install_dir.encode("utf-16-le")) // 2
+    else:
+        component_length = len(plan.new_install_dir.encode("utf-8"))
+    assert component_length <= 255
     assert len(plan.new_install_dir.rsplit("-", maxsplit=1)[-1]) == 10
 
 

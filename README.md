@@ -1,163 +1,196 @@
 # Steam Game Switcher
 
-Steam Game Switcher (SGS) is a command-line tool for switching a game's selected
-Steam branch by safely updating its local `appmanifest_<app-id>.acf`.
+SGS switches Steam branches by editing a game's local appmanifest. Steam handles
+downloads and updates; SGS does not move game files.
 
-- Main repository: <https://codeberg.org/marvin1099/SteamGameSwitcher>
-- GitHub mirror: <https://github.com/marvin1099/SteamGameSwitcher>
+## Install
 
-## Requirements
-
-- Python 3.11 or newer
-- [uv](https://docs.astral.sh/uv/)
-- The game installed in a Steam library on this computer
-
-SteamCMD is used to retrieve public branch names; it does not download or install
-game files. Steam performs those updates after it notices the changed manifest.
-SGS uses SteamCMD from `PATH` or its per-user install directory. If it is missing,
-branch commands show a warning and can use cached branch data when available.
-
-## Install for development
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), and a game installed in
+a Steam library.
 
 ```sh
 git clone https://github.com/marvin1099/SteamGameSwitcher.git
 cd SteamGameSwitcher
-uv sync
+uv tool install .
 ```
 
-Run the CLI from the project checkout with `uv run`:
+Run `sgs` after installation. If it is not found, add uv's tool directory to your
+`PATH`. Install SteamCMD with `sgs steamcmd install`; replace it with
+`sgs steamcmd repair`. On Linux, SteamCMD may need 32-bit runtime packages.
+
+### Optional graphical interface
+
+PySide6 is not required by the CLI. Install the GUI extra and launch it with:
 
 ```sh
-uv run sgs --help
+uv tool install ".[gui]"
+sgs gui
 ```
 
-To install a standalone command in the active environment, use `uv tool install .`
-from the project directory.
-
-To download SteamCMD directly from Valve and install it for the current user (no
-administrator access required), run:
+If SGS is already installed without the GUI, reinstall the tool with the extra:
 
 ```sh
-uv run sgs install-steamcmd
+uv tool install --force ".[gui]"
 ```
 
-The installer supports Valve's Linux, Windows, and macOS archives, installs under
-the user's application data directory, and does not launch SteamCMD during
-installation. The first branch lookup may let SteamCMD update itself.
-If a managed install is incomplete or needs replacing, run:
+The GUI includes branch status and switching, per-game settings and new-game
+defaults, manifest backup restore/deletion, branch shortcuts, and SteamCMD
+installation. Actions that change a branch, restore a backup, or delete a backup
+ask for confirmation. It uses the same config, manifest, SteamCMD, and guard
+options as the CLI; for example, `sgs --app-id 400 --guard gui`.
+On Linux, launching the GUI also registers a matching SVG app-menu launcher
+under the user's applications directory so the taskbar can use the same icon.
+
+## Quick start
+
+The default game is Satisfactory (App ID `526870`). Change the saved default with
+`sgs defaults --app-id 400`; pass `--app-id` before a command to override it once.
+SGS detects the library and manifest automatically when possible.
 
 ```sh
-uv run sgs install-steamcmd --repair
+sgs branches
+sgs status
+sgs switch experimental
 ```
 
-It downloads and extracts the replacement before swapping it in, and attempts to
-restore the previous copy if activation fails.
-
-On Linux, SteamCMD may also require 32-bit compatibility/runtime libraries from
-your distribution. Package names vary; SGS only installs SteamCMD files and does
-not install system libraries or request administrator access. If SteamCMD cannot
-start, install the runtime dependencies recommended by your distribution.
-
-## Usage
-
-The default App ID is `526870` (Satisfactory). Steam libraries and the app
-manifest are detected automatically when possible; pass a path explicitly when
-the game is installed somewhere unusual.
+### Choose a branch
 
 ```sh
-# Show public branches; public is displayed by name
-uv run sgs branches
-
-# See the branch currently recorded in the appmanifest
-uv run sgs status
-
-# Cycle forward, or select a branch by name or one-based index
-uv run sgs switch
-uv run sgs switch previous
-uv run sgs switch experimental
-uv run sgs switch 2
-
-# Use another game or a non-default Steam library
-uv run sgs --app-id 400 --steamapps "/path/to/Steam/steamapps" branches
-uv run sgs --app-id 400 --steamapps "/path/to/Steam/steamapps" switch public
-
-# Preview a switch without changing the manifest or saved configuration
-uv run sgs switch experimental --dry-run
-
-# Generate desktop launchers for selected branches (-1 is the last branch)
-uv run sgs shortcuts -1 experimental
-
-# Browse saved manifest backups and restore one by ID
-uv run sgs backups
-uv run sgs restore 0123456789abcdef  # replace with an ID shown by backups
-
-# Install SteamCMD for this user if SGS warns that it is missing
-uv run sgs install-steamcmd
-
-# Replace or repair the managed SteamCMD install
-uv run sgs install-steamcmd --repair
+sgs switch                 # next branch
+sgs switch previous
+sgs switch 2                # second branch in the list
+sgs switch experimental --dry-run
 ```
 
-Target names are case-sensitive and must match a public branch. Numeric indices
-are one-based; negative indices count from the end (`-1` is the last branch).
-`0`, `next`, and no target select the next branch; `-`, `prev`, and `previous`
-select the previous branch. The public branch can be selected with `public`.
+Names are case-sensitive and must appear in `sgs branches`. Numbers start at 1;
+`-1` selects the last branch. Use `public` for the public branch.
 
-`sgs shortcuts` creates one launcher per selected branch in the user's Desktop
-directory by default. Linux gets `.desktop` files, Windows gets hidden `.vbs`
-launchers, and macOS gets executable `.command` files. Use `--output DIR` to
-choose another folder and `--force` to replace existing generated files.
+If you change branches in Steam after SGS has managed the game, run
+`sgs switch <branch>` to reconcile the branch's install folder and manifest
+settings, even if Steam already shows that branch as active.
 
-Use `--refresh` before `branches`, `switch`, or `shortcuts` to refresh SteamCMD's
-branch data instead of using the 24-hour cache. If SteamCMD is unavailable during
-a refresh, SGS uses an existing cached branch list and prints a warning.
-
-## Per-game settings and install directories
-
-Separate install directories are enabled by default for each App ID. Branches
-get names such as `Satisfactory` and `Satisfactory-experimental`, allowing the
-installed files for each branch to remain separate. To use a shared folder for
-one game instead:
+For another game, pass `--app-id`. To select a Steam library manually, pass its
+`steamapps` directory:
 
 ```sh
-uv run sgs switch experimental --shared-folder
+sgs --app-id 400 branches
+sgs --app-id 400 --steamapps "/path/to/Steam/steamapps" switch public
 ```
 
-Use `--separate-folders` to re-enable separate directories for that game. The
-setting is saved per App ID. Custom folder names can be set in the JSON config
-under that game's `install_dirs` mapping. SGS changes the install directory in
-the appmanifest; Steam manages the actual download and installation. Folder names
-must be portable single components. SGS checks the destination filesystem's
-component-length limit, shortens generated names that exceed it, and rejects
-overlong custom names. On common Linux filesystems, this limit is 255 bytes;
-the exact value depends on the destination filesystem.
+### Install folders
 
-Before switching, SGS saves the previous appmanifest data in `backups.json` next
-to the config file. Identical backups for the same game and manifest path are
-deduplicated. Manifests are written atomically, and Steam is never terminated.
-For best results, exit Steam before switching so it cannot overwrite a manifest
-while SGS is editing it.
-
-## Configuration and recovery
-
-The JSON state file is stored in the operating system's user configuration
-directory (via `platformdirs`). Override its location with `--config`. State is
-kept per App ID and contains the public-branch cache, the separate-directory
-setting, and optional install-directory names. Backups store the parsed ACF data
-as JSON and can be listed with `sgs backups` and restored with `sgs restore ID`.
-Restoring also backs up the current manifest first, unless that exact state is
-already present in the backup index. Pass `--manifest` to restore to a different
-path than the one recorded in the backup, placing the option before the command:
+Separate folders are enabled by default. Set or replace a known branch's folder:
 
 ```sh
-uv run sgs --manifest "/path/to/appmanifest_526870.acf" restore 0123456789abcdef
+sgs switch experimental --install-dir SatisfactoryEX
 ```
 
-Saved branch profiles from an earlier SGS config are moved into `backups.json`
-when the next non-dry-run switch occurs; their config entries are removed only
-after the backup file is saved. Existing per-game directory choices are preserved.
+The branch must appear in `sgs branches`. The folder name must be a single
+component. This changes the appmanifest; it does not move files. Use
+`sgs settings --shared-folder` to use one folder for all branches, or
+`sgs settings --separate-folders` to re-enable separate folders without
+switching branches.
+
+### Steam after a switch
+
+These preferences are saved per App ID and are off by default:
+
+```sh
+sgs settings --restart-steam-on-switch --launch-game-after-switch
+sgs settings --launch-game-when-unchanged
+sgs settings --no-restart-steam-on-switch --no-launch-game-after-switch
+sgs switch experimental
+sgs status
+```
+
+`sgs settings` only reads or saves preferences; it does not inspect or edit a
+manifest, switch branches, restart Steam, or launch the game. Steam restart and
+`--launch-game-after-switch` apply only when changing branches.
+`--launch-game-when-unchanged` separately allows launching when the requested
+branch is already active; it is off by default. When restart is enabled, Steam is
+closed gracefully before branch changes and restarted afterward. If it will not
+close, SGS aborts; it never force-terminates Steam. By default, SGS warns if Steam
+is running or its status cannot be checked, then proceeds; the user is responsible
+for Steam's state. Pass `--guard` before a command to refuse manifest edits in
+those cases when SGS is not automatically restarting Steam; `--no-guard`
+explicitly selects the warning-only behavior. Game launch uses
+`steam://rungameid/<AppID>`.
+
+Use `sgs defaults` to view or change defaults for new game entries:
+
+```sh
+sgs defaults --restart-steam --launch-game --separate-folders
+sgs defaults --launch-game-when-unchanged
+```
+
+Use `--no-restart-steam`, `--no-launch-game`, or
+`--no-launch-game-when-unchanged` to turn defaults off. Defaults affect new game
+entries only; existing games keep their saved settings.
+
+### Cache and shortcuts
+
+Branch data normally refreshes every 24 hours. `--refresh` requires a successful
+fresh fetch and fails rather than using stale data. `--cache` uses expired cache
+data if available and fetches only when no usable cache exists. These options
+cannot be combined.
+
+```sh
+sgs --refresh branches
+sgs --cache switch experimental
+```
+
+Create branch launchers with `sgs shortcuts experimental public`. By default,
+they go to the app launcher folder: Linux Applications menu, Windows Start Menu,
+or macOS `~/Applications`. SGS prints the destination path. Use `--output DIR`
+to choose another folder or `--force` to replace existing launchers.
+
+## Backups
+
+List, restore, or delete backups:
+
+```sh
+sgs backup list
+sgs backup restore 1                       # number from the list
+sgs backup restore 0123456789abcdef        # stable backup ID
+sgs backup delete 1                        # asks before deleting
+sgs backup delete --global-numbering 3 --yes
+```
+
+By default, the list is filtered to the selected App ID. Numbers are generated
+from the current newest-first list, not saved, so they can change as backups
+change. Filter to another game or use global numbering with:
+
+```sh
+sgs backup list --app-id 400
+sgs backup restore --app-id 400 1
+sgs backup list --all
+sgs backup restore --global-numbering 2
+sgs backup delete --global-numbering 3 --yes
+```
+
+When needed, restore saves the current manifest before replacing it. Delete
+removes only the backup record, not the live manifest. To restore another
+manifest, put `--manifest PATH` before the `backup` command.
+Branch-changing restores follow the game's saved restart and launch preferences.
+With the default warning-only behavior, SGS proceeds if Steam may be running;
+pass `--guard` to refuse if SGS is not automatically restarting Steam for that
+branch change.
+
+## Config and safety
+
+- Config and `backups.json` are stored in the user config directory; use
+  `--config PATH` to choose another location.
+- By default, SGS warns but proceeds if Steam is running or its status cannot be
+  checked; the user is responsible for Steam's state. Use `--guard` to refuse the
+  manifest edit when SGS is not automatically restarting Steam. The saved restart
+  preference asks Steam to close and relaunch on branch changes; if Steam will not
+  close, SGS aborts and never force-terminates it.
+- Older saved branch profiles are moved to `backups.json` on the next real
+  (non-dry-run) switch.
 
 ## Development
+
+From the project directory, install development dependencies with `uv sync`.
 
 ```sh
 uv run ruff check .
@@ -165,5 +198,4 @@ uv run ruff format --check .
 uv run pytest
 ```
 
-The project is licensed under the GNU Affero General Public License v3 or later;
-see [LICENSE](LICENSE).
+Licensed under the GNU Affero General Public License v3 or later; see [LICENSE](LICENSE).
