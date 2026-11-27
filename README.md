@@ -8,6 +8,10 @@ downloads and updates; SGS does not move game files.
 Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), and a game installed in
 a Steam library.
 
+Standalone builds for Linux x86_64, Windows x86_64, and macOS arm64 are available
+from [GitHub Releases](https://github.com/marvin1099/SteamGameSwitcher/releases).
+Each archive includes the executable, this README, and the license.
+
 ```sh
 git clone https://github.com/marvin1099/SteamGameSwitcher.git
 cd SteamGameSwitcher
@@ -201,4 +205,5 @@ uv run ruff format --check .
 uv run pytest
 ```
 
-Licensed under the GNU Affero General Public License v3 or later; see [LICENSE](LICENSE).
+Licensed under the GNU Affero General Public License v3 only
+([AGPL-3.0-only](https://spdx.org/licenses/AGPL-3.0-only.html)); see [LICENSE](LICENSE).

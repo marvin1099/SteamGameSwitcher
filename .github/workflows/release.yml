@@ -1,0 +1,77 @@
+name: Build and publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+            data_separator: ":"
+          - os: windows-latest
+            platform: windows-x86_64
+            data_separator: ";"
+          - os: macos-latest
+            platform: macos-arm64
+            data_separator: ":"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1
+      - run: uv python install 3.12
+      - run: uv sync --locked --python 3.12 --extra gui --group build
+      - name: Build standalone executable
+        run: >
+          uv run pyinstaller --clean --noconfirm --onefile --name sgs
+          --specpath build/spec
+          --paths src
+          --hidden-import steam_game_switcher.gui
+          --add-data "${{ github.workspace }}/src/steam_game_switcher/assets${{ matrix.data_separator }}steam_game_switcher/assets"
+          --add-data "${{ github.workspace }}/LICENSE${{ matrix.data_separator }}."
+          scripts/frozen_entrypoint.py
+      - name: Smoke test executable
+        run: >
+          uv run python -c "import pathlib, subprocess, sys;
+          binary = pathlib.Path('dist') / ('sgs.exe' if sys.platform == 'win32' else 'sgs');
+          subprocess.run([binary, '--help'], check=True)"
+      - name: Package binary with license and README
+        run: uv run python scripts/package_release.py --platform ${{ matrix.platform }}
+      - if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: release-output/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+      - name: Generate checksums
+        run: cd release-assets && sha256sum *.zip > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*

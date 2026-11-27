@@ -4,17 +4,17 @@ build-backend = "hatchling.build"
 
 [project]
 name = "steam-game-switcher"
-version = "0.1.0"
+version = "1.0.0"
 description = "Switch Steam game branches and generate desktop launchers"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "AGPL-3.0-or-later"
+license = "AGPL-3.0-only"
 keywords = ["steam", "game", "branch", "switcher"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -39,6 +39,9 @@ steam-game-switcher = "steam_game_switcher.cli:main"
 dev = [
     "pytest>=8.3,<9",
     "ruff>=0.9,<1",
+]
+build = [
+    "pyinstaller>=6.16,<7",
 ]
 
 [tool.hatch.build.targets.wheel]
