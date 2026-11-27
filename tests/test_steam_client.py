@@ -1,5 +1,7 @@
 import subprocess
 
+import pytest
+
 from steam_game_switcher import steam_client
 
 
@@ -68,3 +70,32 @@ def test_launch_game_opens_steam_uri_with_system_handler(monkeypatch):
 
     assert steam_client.launch_game(526870) is None
     assert opened == [["/usr/bin/xdg-open", "steam://rungameid/526870"]]
+
+
+@pytest.mark.parametrize(
+    ("return_code", "stdout", "stderr"),
+    [
+        (1, "", "Access is denied."),
+        (1, '"steam.exe","1234","Console","1","10,000 K"', ""),
+    ],
+)
+def test_windows_steam_status_is_unknown_when_tasklist_fails(
+    monkeypatch, return_code, stdout, stderr
+):
+    monkeypatch.setattr(steam_client.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(
+        steam_client.subprocess,
+        "run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(
+            command,
+            return_code,
+            stdout=stdout,
+            stderr=stderr,
+        ),
+    )
+
+    running, warning = steam_client._steam_is_running()
+
+    assert running is False
+    assert warning is not None
+    assert "Could not check whether Steam is running" in warning

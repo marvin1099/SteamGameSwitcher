@@ -75,6 +75,7 @@ class _ActivityLog(QScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setMinimumHeight(115)
         self._scroll_pending = False
+        self._entry_width: int | None = None
 
         contents = QWidget()
         self._log_layout = QVBoxLayout(contents)
@@ -118,7 +119,7 @@ class _ActivityLog(QScrollArea):
             oldest = self._log_layout.takeAt(0)
             if oldest is not None and oldest.widget() is not None:
                 oldest.widget().deleteLater()
-        self._sync_content_geometry()
+        self._sync_content_geometry(new_entry=widget)
         self._schedule_scroll_to_bottom()
 
     def _schedule_scroll_to_bottom(self) -> None:
@@ -126,18 +127,28 @@ class _ActivityLog(QScrollArea):
             self._scroll_pending = True
             QTimer.singleShot(10, self._scroll_to_bottom)
 
-    def _sync_content_geometry(self) -> None:
+    def _sync_content_geometry(self, new_entry: QWidget | None = None) -> None:
         contents = self.widget()
         if contents is None or not hasattr(self, "_log_layout"):
             return
         viewport_size = self.viewport().size()
         margins = self._log_layout.contentsMargins()
         entry_width = max(1, viewport_size.width() - margins.left() - margins.right())
-        contents.resize(viewport_size.width(), 0)
-        self._log_layout.activate()
-        for index in range(self._log_layout.count()):
-            item = self._log_layout.itemAt(index)
-            widget = item.widget() if item is not None else None
+        width_changed = entry_width != self._entry_width
+        if width_changed:
+            contents.resize(viewport_size.width(), 0)
+            self._log_layout.activate()
+            entries = (
+                item.widget()
+                for index in range(self._log_layout.count())
+                if (item := self._log_layout.itemAt(index)) is not None
+            )
+        elif new_entry is not None:
+            entries = (new_entry,)
+        else:
+            entries = ()
+
+        for widget in entries:
             if isinstance(widget, QLabel):
                 self._reset_height_constraint(widget)
                 widget.setFixedHeight(self._label_height(widget, entry_width))
@@ -149,15 +160,14 @@ class _ActivityLog(QScrollArea):
                 self._reset_height_constraint(widget)
                 self._reset_height_constraint(label)
                 row_margins = row.contentsMargins()
-                label_width = max(
-                    1,
-                    entry_width - row_margins.left() - row_margins.right() - 2,
-                )
+                label_width = max(1, entry_width - row_margins.left() - row_margins.right() - 2)
                 label_height = self._label_height(label, label_width)
                 label.setFixedHeight(label_height)
                 widget.setFixedHeight(label_height + row_margins.top() + row_margins.bottom() + 2)
-        self._log_layout.invalidate()
-        self._log_layout.activate()
+        if width_changed or new_entry is not None:
+            self._log_layout.invalidate()
+            self._log_layout.activate()
+            self._entry_width = entry_width
         content_height = max(
             viewport_size.height(),
             self._log_layout.sizeHint().height(),

@@ -35,9 +35,10 @@ uv tool install --force ".[gui]"
 
 The GUI includes branch status and switching, per-game settings and new-game
 defaults, manifest backup restore/deletion, branch shortcuts, and SteamCMD
-installation. Actions that change a branch, restore a backup, or delete a backup
-ask for confirmation. It uses the same config, manifest, SteamCMD, and guard
-options as the CLI; for example, `sgs --app-id 400 --guard gui`.
+installation. Branch switches run immediately; use Preview for a dry run.
+Restoring or deleting a backup asks for confirmation. It uses the same config,
+manifest, SteamCMD, and guard options as the CLI; for example,
+`sgs --app-id 400 --guard gui`.
 On Linux, launching the GUI also registers a matching SVG app-menu launcher
 under the user's applications directory so the taskbar can use the same icon.
 
@@ -185,8 +186,10 @@ branch change.
   manifest edit when SGS is not automatically restarting Steam. The saved restart
   preference asks Steam to close and relaunch on branch changes; if Steam will not
   close, SGS aborts and never force-terminates it.
-- Older saved branch profiles are moved to `backups.json` on the next real
-  (non-dry-run) switch.
+- Older JSON `profiles` snapshots are moved to `backups.json` on the next real
+  (non-dry-run) switch. Snapshots in the original standalone script's `SGS.txt`
+  file are not imported automatically; keep that file if you still need those
+  legacy snapshots.
 
 ## Development
 

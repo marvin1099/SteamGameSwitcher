@@ -1,6 +1,7 @@
 import importlib
 import os
 import signal
+from time import monotonic
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -24,6 +25,7 @@ def gui_types():
         qtgui.QPalette,
         widgets.QFrame,
         qttest.QTest,
+        qttest.QSignalSpy,
     )
 
 
@@ -31,6 +33,16 @@ def gui_types():
 def qapp(gui_types):
     QApplication = gui_types[0]
     return QApplication.instance() or QApplication([])
+
+
+def _wait_for_condition(QSignalSpy, signal, condition, timeout_ms=1000):
+    spy = QSignalSpy(signal)
+    deadline = monotonic() + timeout_ms / 1000
+    while not condition():
+        remaining_ms = int((deadline - monotonic()) * 1000)
+        if remaining_ms <= 0 or not spy.wait(remaining_ms):
+            return condition()
+    return True
 
 
 @pytest.fixture
@@ -173,18 +185,22 @@ def test_activity_multiline_output_keeps_its_text_height(gui_window, gui_types):
     assert latest_output.height() <= 60
 
 
-def test_activity_log_scrolls_to_new_entries(gui_window, gui_types):
-    QTest = gui_types[8]
+def test_activity_log_scrolls_to_new_entries(gui_window, gui_types, qapp):
+    QSignalSpy = gui_types[9]
     gui_window.resize(1050, 600)
     gui_window.show()
-    QTest.qWait(10)
+    qapp.processEvents()
 
     activity = gui_window.activity
     for index in range(40):
         activity.append_text(f"Activity entry {index}")
-    QTest.qWait(50)
 
     scroll_bar = activity.verticalScrollBar()
+    assert _wait_for_condition(
+        QSignalSpy,
+        scroll_bar.valueChanged,
+        lambda: scroll_bar.maximum() > 0 and scroll_bar.value() == scroll_bar.maximum(),
+    )
     assert scroll_bar.maximum() > 0
     assert scroll_bar.value() == scroll_bar.maximum()
     latest_entry = activity._log_layout.itemAt(activity._log_layout.count() - 1).widget()
@@ -194,8 +210,12 @@ def test_activity_log_scrolls_to_new_entries(gui_window, gui_types):
     assert activity.widget().height() - latest_entry.geometry().bottom() <= 10
 
     gui_window.resize(1050, 700)
-    QTest.qWait(50)
-    assert scroll_bar.value() == scroll_bar.maximum()
+    qapp.processEvents()
+    assert _wait_for_condition(
+        QSignalSpy,
+        scroll_bar.valueChanged,
+        lambda: scroll_bar.value() == scroll_bar.maximum(),
+    )
 
 
 def test_ctrl_c_quits_gui_event_loop(tmp_path, monkeypatch, qapp):

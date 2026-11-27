@@ -119,6 +119,11 @@ def _steam_is_running() -> tuple[bool, str | None]:
             )
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as error:
             return False, f"Could not check whether Steam is running: {error}"
+        if result.returncode != 0:
+            details = result.stderr.strip() or result.stdout.strip()
+            if not details:
+                details = f"tasklist exited with status {result.returncode}"
+            return False, f"Could not check whether Steam is running: {details}"
         return '"steam.exe"' in result.stdout.casefold(), None
 
     return False, f"Steam restart is not supported on {system}."
