@@ -1,0 +1,22 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<!-- Created using Krita: https://krita.org -->
+<svg xmlns="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:krita="http://krita.org/namespaces/svg/krita"
+    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+    width="15.36pt"
+    height="15.36pt"
+    viewBox="0 0 15.36 15.36">
+<defs>
+  <linearGradient id="gradient0" gradientUnits="objectBoundingBox" x1="0.0666666666666667" y1="0.0333333333333333" x2="0.933333333333333" y2="0.966666666666667" spreadMethod="pad">
+   <stop stop-color="#243b70" offset="0" stop-opacity="1"/>
+   <stop stop-color="#101a35" offset="1" stop-opacity="1"/>
+  </linearGradient>
+  <linearGradient id="gradient1" gradientUnits="objectBoundingBox" x1="-0.0243902439024386" y1="0.23229439468577" x2="1.1219512195122" y2="3.59100641793553" spreadMethod="pad">
+   <stop stop-color="#68e0d0" offset="0" stop-opacity="1"/>
+   <stop stop-color="#46a8d8" offset="1" stop-opacity="1"/>
+  </linearGradient>
+ </defs>
+<rect id="shape0" transform="matrix(0.06 0 0 0.06 0.480000000000001 0.48)" fill="url(#gradient0)" stroke-opacity="0" stroke="#000000" stroke-width="0" stroke-linecap="square" stroke-linejoin="bevel" width="240" height="240" rx="58" ry="58"/><path id="shape1" transform="matrix(0.06 0 0 0.06 2.775 2.01404131647688)" fill="none" stroke="url(#gradient1)" stroke-width="13" stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="2" d="M0 41.6826C8.73063 27.2577 22.5905 15.5502 39.5878 8.24267C56.585 0.935181 75.8643 -1.60457 94.6548 0.988423C113.445 3.58142 130.802 11.1767 144.229 22.6826" sodipodi:nodetypes="cccc"/><path id="shape2" transform="matrix(0.0265516921341547 -0.0538052752507884 0.0538052752507884 0.0265516921341547 10.8478017643273 4.04294966729858)" fill="#68e0d0" stroke-opacity="0" stroke="#000000" stroke-width="0" stroke-linecap="square" stroke-linejoin="bevel" d="M0 0L27 12L3 30Z" sodipodi:nodetypes="cccc"/><path id="shape3" transform="matrix(0.06 0 0 0.06 3.92875 11.16)" fill="none" stroke="#f5b958" stroke-width="13" stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="2" d="M141.75 0C133.169 14.425 119.548 26.1325 102.843 33.44C86.1377 40.7475 67.1898 43.2872 48.7222 40.6942C30.2547 38.1012 13.1968 30.506 0 19" sodipodi:nodetypes="cccc"/><path id="shape4" transform="matrix(0.0372308488278387 0.0470517151181406 -0.0470517151181406 0.0372308488278387 3.60663692893107 10.4770423677623)" fill="#f5b958" stroke-opacity="0" stroke="#000000" stroke-width="0" stroke-linecap="square" stroke-linejoin="bevel" d="M27 30L0 18L24 0Z" sodipodi:nodetypes="cccc"/><path id="shape5" transform="matrix(0.06 0 0 0.06 3.14765400061393 5.18140375068947)" fill="#081229" stroke-opacity="0" stroke="#000000" stroke-width="0" stroke-linecap="square" stroke-linejoin="bevel" d="M7.34936 34C11.3494 12 24.3494 0 45.3494 0L101.349 0C122.349 0 135.349 12 139.349 34L146.349 65C149.349 80 132.349 88 121.349 78L100.349 59L46.3494 59L25.3494 78C14.3494 88 -2.65064 80 0.349359 65Z" sodipodi:nodetypes="ccccccccccc"/><path id="shape6" transform="matrix(0.06 0 0 0.06 3.14765400061393 4.88140375068946)" fill="#f4f7ff" stroke-opacity="0" stroke="#000000" stroke-width="0" stroke-linecap="square" stroke-linejoin="bevel" d="M7.34936 34C11.3494 12 24.3494 0 45.3494 0L101.349 0C122.349 0 135.349 12 139.349 34L146.349 65C149.349 80 132.349 88 121.349 78L100.349 59L46.3494 59L25.3494 78C14.3494 88 -2.65064 80 0.349359 65Z" sodipodi:nodetypes="ccccccccccc"/><path id="shape7" transform="matrix(0.06 0 0 0.06 4.48861555432985 6.38140375068946)" fill="none" stroke="#243b70" stroke-width="9" stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="2" d="M14 0L14 28M0 14L28 14" sodipodi:nodetypes="cccc"/><circle id="shape8" transform="matrix(0.06 0 0 0.06 8.98861555432985 6.08140375068946)" r="6" cx="6" cy="6" fill="#41b8b0" stroke-opacity="0" stroke="#000000" stroke-width="0" stroke-linecap="square" stroke-linejoin="bevel"/><circle id="shape9" transform="matrix(0.06 0 0 0.06 9.94861555432986 7.04140375068947)" r="6" cx="6" cy="6" fill="#f0aa4f" stroke-opacity="0" stroke="#000000" stroke-width="0" stroke-linecap="square" stroke-linejoin="bevel"/>
+</svg>
