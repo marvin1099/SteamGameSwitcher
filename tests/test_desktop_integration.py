@@ -1,3 +1,4 @@
+import os
 import stat
 import xml.etree.ElementTree as ET
 
@@ -13,16 +14,16 @@ def test_application_icon_is_valid_svg():
 
 
 def test_render_application_desktop_entry_quotes_exec_arguments(tmp_path):
-    executable = tmp_path / "SGS tool" / "sgs"
+    executable = "SGS tool/sgs"
     icon = tmp_path / "icons" / "sgs icon.svg"
 
     contents = desktop_integration.render_application_desktop_entry(
-        [str(executable), "gui"],
+        [executable, "gui"],
         icon_path=icon,
     )
 
     assert f'Exec="{executable}" "gui"' in contents
-    assert f"Icon={icon}" in contents
+    assert f"Icon={icon.resolve()}" in contents
     assert "StartupWMClass=steam-game-switcher" in contents
     assert "Terminal=false" in contents
 
@@ -38,7 +39,8 @@ def test_install_application_desktop_entry_creates_linux_app_menu_entry(tmp_path
     contents = entry.read_text(encoding="utf-8")
     assert 'Exec="/tools/sgs" "gui"' in contents
     assert f"Icon={desktop_integration.application_icon_path().resolve()}" in contents
-    assert stat.S_IMODE(entry.stat().st_mode) & 0o111
+    if os.name != "nt":
+        assert stat.S_IMODE(entry.stat().st_mode) & 0o111
 
 
 def test_install_does_not_replace_an_unmanaged_launcher(tmp_path, monkeypatch):

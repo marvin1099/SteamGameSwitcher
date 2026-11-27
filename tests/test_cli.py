@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from steam_game_switcher import cli
+from steam_game_switcher import cli, shortcuts
 from steam_game_switcher.acf import load_acf, save_acf_atomic
 from steam_game_switcher.backups import add_backup, backup_store_path, save_backup_store
 from steam_game_switcher.errors import SteamCMDNotFoundError
@@ -1292,6 +1292,7 @@ def test_cli_installs_steamcmd_for_user(monkeypatch, capsys):
 
 
 def test_cli_generates_shortcuts_for_selected_branch_indices(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(shortcuts.platform, "system", lambda: "Linux")
     manifest_path = tmp_path / "appmanifest_1234.acf"
     config_path = tmp_path / "config.json"
     output_directory = tmp_path / "Desktop"
