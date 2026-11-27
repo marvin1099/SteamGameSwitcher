@@ -137,7 +137,7 @@ def test_generated_unicode_install_directory_respects_component_limit():
     manifest = {
         "AppState": {
             "appid": "1234",
-            "name": "遊" * 100,
+            "name": "遊" * 300,
             "installdir": "CurrentGame",
             "UserConfig": {"BetaKey": ""},
         }

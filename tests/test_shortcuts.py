@@ -74,7 +74,8 @@ def test_generate_linux_shortcut_uses_sgs_executable(tmp_path):
     )
 
     contents = shortcuts[0].read_text(encoding="utf-8")
-    assert f'Exec="{sgs_executable}" "--app-id" "1234"' in contents
+    escaped_executable = str(sgs_executable).replace("\\", "\\\\")
+    assert f'Exec="{escaped_executable}" "--app-id" "1234"' in contents
     assert '"-m" "steam_game_switcher"' not in contents
     assert "Terminal=false" in contents
 

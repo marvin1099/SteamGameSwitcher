@@ -1330,7 +1330,8 @@ def test_cli_generates_shortcuts_for_selected_branch_indices(tmp_path, monkeypat
         shortcut = output_directory / name
         assert shortcut.is_file()
         contents = shortcut.read_text(encoding="utf-8")
-        assert f'Exec="{sgs_executable}"' in contents
+        escaped_executable = str(sgs_executable).replace("\\", "\\\\")
+        assert f'Exec="{escaped_executable}"' in contents
         assert "Terminal=false" in contents
         assert '"-m" "steam_game_switcher"' not in contents
     output = capsys.readouterr().out
